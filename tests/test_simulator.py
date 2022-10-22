@@ -42,9 +42,18 @@ def adjust_from_string(instruction):
     return i
 
 
-def get_mechs_position(events, mechs_size):
-    return [(events[i*mechs_size + 3].value, events[i*mechs_size + 4].value)
-            for i in range(len(events)//mechs_size)]
+def get_mechs(events, mechs_size):
+    for i in range(len(events)//mechs_size):
+        mech = (events[i*mechs_size].value, events[i*mechs_size + 1].value, events[i*mechs_size + 2].value,
+                events[i*mechs_size + 3].value, events[i*mechs_size + 4].value)
+        LOGGER.info(mech)
+
+
+def get_atoms(events, atoms_size):
+    for i in range(len(events)//atoms_size):
+        atom = (events[i*atoms_size].value, events[i*atoms_size + 1].value, events[i*atoms_size + 2].value,
+                events[i*atoms_size + 3].value, events[i*atoms_size + 4].value, events[i*atoms_size + 5].value)
+        LOGGER.info(atom)
 
 
 @pytest.fixture(scope='module')
@@ -113,7 +122,7 @@ async def test(starknet, block_info_mock):
     # # Loop the baby
     # N = 5 * 24  # 5 seconds, 24 fps
     ret = await contract.simulator(
-        2,
+        4,
         7,
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
          (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)), (8, 0, 0, (5, 4))],
@@ -128,9 +137,11 @@ async def test(starknet, block_info_mock):
     ).call()
 
     mechs_len = 9
-    mechs_pos = get_mechs_position(ret.main_call_events, 5)
-    LOGGER.info(mechs_pos[:mechs_len])
-    LOGGER.info(mechs_pos[mechs_len:])
+    events = ret.main_call_events
+    # LOGGER.info(events)
+
+    # get_atoms(events, 6)
+    # get_mechs(events, 5)
 
     # LOGGER.info(
     #     f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
