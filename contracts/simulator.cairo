@@ -11,7 +11,7 @@ from contracts.operators import verify_valid, get_operators_cost
 from contracts.instructions import get_frame_instruction_set
 
 from contracts.events import Check
-from contracts.utils import emit_arr, emit_grid_arr, emit_mechs
+from contracts.utils import emit_arr, emit_grid_arr, emit_mechs, emit_atoms
 
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
@@ -111,7 +111,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     );
 
     // simulate one frame based on current state + instructions
-    simulate_one_frame(
+    let (mechs_new, atoms_len_new, atoms_new) = simulate_one_frame(
         board_dimension,
         instructions_sets_len,
         frame_instructions,
@@ -140,9 +140,9 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         instructions_len,
         instructions,
         mechs_len,
-        mechs,
-        atoms_len,
-        atoms,
+        mechs_new,
+        atoms_len_new,
+        atoms_new,
         atom_faucets_len,
         atom_faucets,
         atom_sinks_len,
@@ -175,8 +175,9 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operator_output: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-) {
+) -> (mechs_new: MechState*, atoms_len_new: felt, atoms_new: AtomState*) {
     alloc_locals;
+
     let (atoms_new: AtomState*) = alloc();
     memcpy(atoms_new, atoms, atoms_len * ns_atoms.ATOM_STATE_SIZE);
     let atoms_len_new = populate_faucets(atom_faucets_len, atom_faucets, atoms_len, atoms_new);
@@ -185,9 +186,17 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     // Iterate through mechs
     //
     let (atoms_new, mechs_new) = iterate_mechs(
-        board_dimension, mechs_len, mechs, 0, instructions_len, instructions, atoms_len, atoms, 0
+        board_dimension,
+        mechs_len,
+        mechs,
+        0,
+        instructions_len,
+        instructions,
+        atoms_len_new,
+        atoms_new,
+        0,
     );
-    // emit_arr(atom_len_new * ns_atom_state.ATOM_STATE_SIZE, atoms_new);
-    emit_mechs(mechs_len, mechs_new);
-    return ();
+    // emit_mechs(mechs_len, mechs_new);
+    // emit_atoms(atoms_len_new, atoms_new);
+    return (mechs_new, atoms_len_new, atoms_new);
 }
