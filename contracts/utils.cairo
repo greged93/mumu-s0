@@ -1,7 +1,8 @@
 %lang starknet
 
 from contracts.events import Check
-from contracts.constants import ns_grid, ns_mechs, ns_atoms, Grid
+from contracts.constants import ns_grid, ns_mechs, ns_atoms
+from contracts.grid import Grid, GRID_SIZE
 from contracts.mechs import MechState
 from contracts.atoms import AtomState
 
@@ -19,7 +20,7 @@ func emit_grid_arr{syscall_ptr: felt*, range_check_ptr}(arr_len: felt, arr: Grid
     }
     Check.emit(value=[arr].x);
     Check.emit(value=[arr].y);
-    return emit_arr(arr_len - 1, arr + ns_grid.GRID_SIZE);
+    return emit_arr(arr_len - 1, arr + GRID_SIZE);
 }
 
 func emit_mechs{syscall_ptr: felt*, range_check_ptr}(arr_len: felt, arr: MechState*) {

@@ -38,7 +38,7 @@ func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
         return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
     }
     if (atom.possessed_by == mech_id) {
-        // TODO make a generic copy functin which takes i, atoms and AtomState and returns atoms_new
+        // TODO make a generic copy function which takes i, atoms and AtomState and returns atoms_new
         let (atoms_new: AtomState*) = alloc();
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
         tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;

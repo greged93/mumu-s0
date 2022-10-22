@@ -5,16 +5,9 @@ from starkware.cairo.common.math import abs_value, unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.events import Check
-
-struct Grid {
-    x: felt,
-    y: felt,
-}
+from contracts.grid import Grid
 
 namespace ns_grid {
-    const GRID_SIZE = 2;
-
     func diff{range_check_ptr}(a: Grid, b: Grid) -> (diff: Grid) {
         tempvar abs_x = abs_value(a.x - b.x);
         tempvar abs_y = abs_value(a.y - b.y);
@@ -72,4 +65,11 @@ namespace ns_instructions {
     const Z = 4;
     const X = 5;
     const SKIP = 6;
+}
+
+namespace ns_instructions_cost {
+    const SINGLETON_MOVE_EMPTY = 10;
+    const SINGLETON_MOVE_CARRY = 20;
+    const SINGLETON_GET = 25;
+    const SINGLETON_PUT = 25;
 }

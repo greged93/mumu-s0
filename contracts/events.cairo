@@ -7,3 +7,7 @@
 @event
 func Check(value: felt) {
 }
+
+@event
+func CheckArr(value_len: felt, value: felt*) {
+}

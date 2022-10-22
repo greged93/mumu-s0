@@ -8,18 +8,8 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
-YES = 1
-NO = 0
-
 PRIME = 3618502788666131213697322783095070105623107215331596699973092056135872020481
 PRIME_HALF = PRIME//2
-
-
-def adjust_from_felt(felt):
-    if felt > PRIME_HALF:
-        return felt - PRIME
-    else:
-        return felt
 
 
 def adjust_from_string(instruction):
@@ -67,45 +57,12 @@ async def starknet():
     return starknet
 
 
-@pytest.fixture
-async def block_info_mock(starknet):
-    class Mock:
-        def __init__(self, current_block_info):
-            self.block_info = current_block_info
-
-        def update(self, block_number, block_timestamp):
-            starknet.state.state.block_info = BlockInfo(
-                block_number, block_timestamp,
-                self.block_info.gas_price,
-                self.block_info.sequencer_address
-            )
-
-        def reset(self):
-            starknet.state.state.block_info = self.block_info
-
-        def set_block_number(self, block_number):
-            starknet.state.state.block_info = BlockInfo(
-                block_number, self.block_info.block_timestamp,
-                self.block_info.gas_price,
-                self.block_info.sequencer_address
-            )
-
-        def set_block_timestamp(self, block_timestamp):
-            starknet.state.state.block_info = BlockInfo(
-                self.block_info.block_number, block_timestamp,
-                self.block_info.gas_price,
-                self.block_info.sequencer_address
-            )
-
-    return Mock(starknet.state.state.block_info)
-
-
 @pytest.mark.asyncio
-async def test(starknet, block_info_mock):
+async def test(starknet):
 
     # Deploy contract
     contract = await starknet.deploy(source='contracts/simulator.cairo')
-    LOGGER.info(f'> Deployed engine.cairo.')
+    LOGGER.info(f'> Deployed simulator.cairo.')
 
     i = ["Z,D,X,A,_,_,_,_,_,_,_",
          "_,Z,D,D,X,A,A,_,_,_,_",
@@ -119,10 +76,10 @@ async def test(starknet, block_info_mock):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
+
     # # Loop the baby
-    # N = 5 * 24  # 5 seconds, 24 fps
     ret = await contract.simulator(
-        4,
+        10,
         7,
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
          (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)), (8, 0, 0, (5, 4))],
@@ -138,9 +95,9 @@ async def test(starknet, block_info_mock):
 
     mechs_len = 9
     events = ret.main_call_events
-    # LOGGER.info(events)
+    LOGGER.info(events)
 
-    # get_atoms(events, 6)
+    get_atoms(events, 6)
     # get_mechs(events, 5)
 
     # LOGGER.info(
