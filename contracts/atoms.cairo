@@ -5,6 +5,8 @@ from starkware.cairo.common.memcpy import memcpy
 
 from contracts.constants import Grid, ns_atoms, ns_atom_faucets
 
+from contracts.events import Check
+
 struct AtomState {
     id: felt,
     type: felt,
@@ -24,7 +26,7 @@ struct AtomSinkState {
     index: Grid,
 }
 
-func update_atoms_moved{range_check_ptr}(
+func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (is_moved: felt, atoms_new: AtomState*) {
     alloc_locals;
@@ -33,14 +35,15 @@ func update_atoms_moved{range_check_ptr}(
     }
     tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
     if (atom.status == ns_atoms.FREE) {
-        return update_atoms_moved(mech_id, pos, i, atoms_len, atoms);
+        return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
     }
     if (atom.possessed_by == mech_id) {
+        // TODO make a generic copy functin which takes i, atoms and AtomState and returns atoms_new
         let (atoms_new: AtomState*) = alloc();
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
         tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
         memcpy(atoms_new, atoms, len_1);
-        assert [atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE] = AtomState(atom.id, atom.type, atom.status, pos, mech_id);
+        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, atom.status, pos, mech_id);
         memcpy(
             atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE,
             atoms + len_1 + ns_atoms.ATOM_STATE_SIZE,
@@ -48,7 +51,31 @@ func update_atoms_moved{range_check_ptr}(
         );
         return (1, atoms_new);
     }
-    return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms + ns_atoms.ATOM_STATE_SIZE);
+    return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
+}
+
+func update_atoms_status{syscall_ptr: felt*, range_check_ptr}(
+    mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*, status: felt
+) -> (atoms_new: AtomState*) {
+    alloc_locals;
+    if (atoms_len == i) {
+        return (atoms_new=atoms);
+    }
+    tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
+    if (atom.status == ns_atoms.FREE and pos.x == atom.index.x and pos.y == atom.index.y) {
+        let (atoms_new: AtomState*) = alloc();
+        tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
+        tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
+        memcpy(atoms_new, atoms, len_1);
+        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, status, pos, mech_id);
+        memcpy(
+            atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE,
+            atoms + len_1 + ns_atoms.ATOM_STATE_SIZE,
+            len_2,
+        );
+        return (atoms_new=atoms_new);
+    }
+    return update_atoms_status(mech_id, pos, i + 1, atoms_len, atoms, status);
 }
 
 func populate_faucets{range_check_ptr}(
@@ -76,7 +103,7 @@ func check_faucet_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomS
         return 1;
     }
     tempvar atom = [atoms];
-    if (pos.x == atom.index.x and pos.y == atom.index.y) {
+    if (pos.x == atom.index.x and pos.y == atom.index.y and atom.status == ns_atoms.FREE) {
         return 0;
     }
     return check_faucet_free(pos, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
