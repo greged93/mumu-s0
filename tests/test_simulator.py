@@ -42,6 +42,11 @@ def adjust_from_string(instruction):
     return i
 
 
+def get_mechs_position(events, mechs_size):
+    return [(events[i*mechs_size + 3].value, events[i*mechs_size + 4].value)
+            for i in range(len(events)//mechs_size)]
+
+
 @pytest.fixture(scope='module')
 def event_loop():
     return asyncio.new_event_loop()
@@ -108,21 +113,24 @@ async def test(starknet, block_info_mock):
     # # Loop the baby
     # N = 5 * 24  # 5 seconds, 24 fps
     ret = await contract.simulator(
-        10,
+        2,
         7,
-        [(0, 0, 0, 0), (1, 0, 0, 1), (2, 0, 0, 2), (3, 0, 0, 3),
-         (4, 0, 0, 4), (5, 0, 0, 5), (6, 0, 0, 6), (7, 0, 0, 7), (8, 0, 0, 8)],
+        [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
+         (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)), (8, 0, 0, (5, 4))],
         [],
         instructions_length,
         instructions,
-        [(0, 0, 0, (0, 0))],
+        [(0, 0, (0, 0))],
         [(0, (6, 6))],
         [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0), (4, 1), (3, 3), (4, 3), (5, 3)],
         [(3, 0), (3, 1), (4, 2), (5, 4), (5, 5)],
         [0, 0, 1, 2],
     ).call()
 
-    LOGGER.info(ret.main_call_events)
+    mechs_len = 9
+    mechs_pos = get_mechs_position(ret.main_call_events, 5)
+    LOGGER.info(mechs_pos[:mechs_len])
+    LOGGER.info(mechs_pos[mechs_len:])
 
     # LOGGER.info(
     #     f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
