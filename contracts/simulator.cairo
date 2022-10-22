@@ -3,14 +3,15 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid, Grid
+from contracts.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid
 
 from contracts.mechs import MechState, get_mechs_cost, iterate_mechs
 from contracts.atoms import AtomState, AtomFaucetState, AtomSinkState, populate_faucets
-from contracts.operators import verify_valid, get_operators_cost
+from contracts.operators import verify_valid, get_operators_cost, iterate_operators
 from contracts.instructions import get_frame_instruction_set
+from contracts.grid import Grid
 
-from contracts.events import Check
+from contracts.events import Check, CheckArr
 from contracts.utils import emit_arr, emit_grid_arr, emit_mechs, emit_atoms
 
 @external
@@ -29,16 +30,16 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     atom_faucets: AtomFaucetState*,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
-    operator_input_len: felt,
-    operator_input: Grid*,
-    operator_output_len: felt,
-    operator_output: Grid*,
+    operators_inputs_len: felt,
+    operators_inputs: Grid*,
+    operators_outputs_len: felt,
+    operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
 ) {
     alloc_locals;
     // verify the operators are valid
-    verify_valid(operators_type_len, operators_type, operator_input, operator_output);
+    verify_valid(operators_type_len, operators_type, operators_inputs, operators_outputs);
 
     //
     // Calculate base cost based on number of operators and number of mechs used
@@ -66,12 +67,13 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         atom_faucets,
         atom_sinks_len,
         atom_sinks,
-        operator_input_len,
-        operator_input,
-        operator_output_len,
-        operator_output,
+        operators_inputs_len,
+        operators_inputs,
+        operators_outputs_len,
+        operators_outputs,
         operators_type_len,
         operators_type,
+        base_cost,
     );
 
     return ();
@@ -93,12 +95,13 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     atom_faucets: AtomFaucetState*,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
-    operator_input_len: felt,
-    operator_input: Grid*,
-    operator_output_len: felt,
-    operator_output: Grid*,
+    operators_inputs_len: felt,
+    operators_inputs: Grid*,
+    operators_outputs_len: felt,
+    operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
+    cost: felt,
 ) {
     alloc_locals;
     if (cycle == n_cycles) {
@@ -111,7 +114,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     );
 
     // simulate one frame based on current state + instructions
-    let (mechs_new, atoms_len_new, atoms_new) = simulate_one_frame(
+    let (mechs_new, atoms_len_new, atoms_new, cost_increase) = simulate_one_frame(
         board_dimension,
         instructions_sets_len,
         frame_instructions,
@@ -123,10 +126,10 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         atom_faucets,
         atom_sinks_len,
         atom_sinks,
-        operator_input_len,
-        operator_input,
-        operator_output_len,
-        operator_output,
+        operators_inputs_len,
+        operators_inputs,
+        operators_outputs_len,
+        operators_outputs,
         operators_type_len,
         operators_type,
     );
@@ -147,12 +150,13 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         atom_faucets,
         atom_sinks_len,
         atom_sinks,
-        operator_input_len,
-        operator_input,
-        operator_output_len,
-        operator_output,
+        operators_inputs_len,
+        operators_inputs,
+        operators_outputs_len,
+        operators_outputs,
         operators_type_len,
         operators_type,
+        cost + cost_increase,
     );
     return ();
 }
@@ -169,13 +173,13 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     atom_faucets: AtomFaucetState*,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
-    operator_input_len: felt,
-    operator_input: Grid*,
-    operator_output_len: felt,
-    operator_output: Grid*,
+    operators_inputs_len: felt,
+    operators_inputs: Grid*,
+    operators_outputs_len: felt,
+    operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-) -> (mechs_new: MechState*, atoms_len_new: felt, atoms_new: AtomState*) {
+) -> (mechs_new: MechState*, atoms_len_new: felt, atoms_new: AtomState*, cost_increase: felt) {
     alloc_locals;
 
     let (atoms_new: AtomState*) = alloc();
@@ -185,7 +189,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     //
     // Iterate through mechs
     //
-    let (atoms_new, mechs_new) = iterate_mechs(
+    let (atoms_new, mechs_new, cost_increase) = iterate_mechs(
         board_dimension,
         mechs_len,
         mechs,
@@ -196,7 +200,20 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         atoms_new,
         0,
     );
+
+    //
+    // Iterate through operators
+    //
+    let (atoms_len_new, atoms_new) = iterate_operators(
+        atoms_len_new,
+        atoms_new,
+        operators_inputs,
+        operators_outputs,
+        operators_type_len,
+        operators_type,
+    );
+
     // emit_mechs(mechs_len, mechs_new);
-    // emit_atoms(atoms_len_new, atoms_new);
-    return (mechs_new, atoms_len_new, atoms_new);
+    emit_atoms(atoms_len_new, atoms_new);
+    return (mechs_new, atoms_len_new, atoms_new, cost_increase);
 }
