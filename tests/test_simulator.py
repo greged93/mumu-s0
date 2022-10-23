@@ -1,8 +1,6 @@
 from re import M
 import pytest
-import json
 from starkware.starknet.testing.starknet import Starknet
-from starkware.starknet.business_logic.state.state import BlockInfo
 import asyncio
 import logging
 
@@ -32,18 +30,18 @@ def adjust_from_string(instruction):
     return i
 
 
-def get_mechs(events, mechs_size):
-    for i in range(len(events)//mechs_size):
-        mech = (events[i*mechs_size].value, events[i*mechs_size + 1].value, events[i*mechs_size + 2].value,
-                events[i*mechs_size + 3].value, events[i*mechs_size + 4].value)
-        LOGGER.info(mech)
-
-
-def get_atoms(events, atoms_size):
-    for i in range(len(events)//atoms_size):
-        atom = (events[i*atoms_size].value, events[i*atoms_size + 1].value, events[i*atoms_size + 2].value,
-                events[i*atoms_size + 3].value, events[i*atoms_size + 4].value, events[i*atoms_size + 5].value)
-        LOGGER.info(atom)
+def get_object_events(events, size):
+    j = 0
+    obj = ()
+    for e in events:
+        if e.value == 1000:
+            LOGGER.info(f'NEW FRAME {j}')
+            j += 1
+            continue
+        if len(obj) == size:
+            LOGGER.info(obj)
+            obj = ()
+        obj += (e.value,)
 
 
 @pytest.fixture(scope='module')
@@ -76,10 +74,11 @@ async def test(starknet):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
+    N = 44  # 44 if double run
 
     # # Loop the baby
     ret = await contract.simulator(
-        10,
+        N,
         7,
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
          (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)), (8, 0, 0, (5, 4))],
@@ -89,19 +88,87 @@ async def test(starknet):
         [(0, 0, (0, 0))],
         [(0, (6, 6))],
         [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0), (4, 1), (3, 3), (4, 3), (5, 3)],
-        [(3, 0), (3, 1), (4, 2), (5, 4), (5, 5)],
+        [(3, 0), (3, 1), (4, 2), (5, 4), (6, 4)],
         [0, 0, 1, 2],
     ).call()
 
-    mechs_len = 9
+    LOGGER.info(
+        f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
+
+    i = ["Z,D,X,A,_,_,_,_,_,_,_",
+         "_,Z,D,D,X,A,A,_,_,_,_",
+         "_,_,Z,S,D,X,A,W,_,_,_",
+         "_,_,_,Z,S,D,D,X,A,A,W",
+         "Z,D,X,A",
+         "Z,D,X,A",
+         "Z,S,D,X,A,W,Z,S,X,W",
+         "X,D,W,W,Z,S,S,A",
+         "X,A,W,W,Z,S,S,D"]
+
+    instructions_length = [len(x)//2 + 1 for x in i]
+    instructions = sum(list(map(adjust_from_string, i)), [])
+    atoms = [(0, 0, 3, (1, 0), 0),
+             (1, 0, 3, (2, 0), 0),
+             (2, 0, 3, (1, 1), 0),
+             (3, 0, 3, (2, 1), 0),
+             (4, 0, 3, (1, 0), 0),
+             (5, 1, 3, (4, 0), 0),
+             (6, 1, 3, (4, 1), 0),
+             (7, 2, 0, (5, 3), 0),
+             (8, 0, 3, (2, 0), 0),
+             (9, 0, 3, (1, 1), 0),
+             (10, 0, 3, (2, 1), 0),
+             (11, 0, 3, (1, 0), 0),
+             (12, 1, 3, (4, 0), 0),
+             (13, 1, 3, (4, 1), 0),
+             (14, 2, 0, (4, 3), 0),
+             (15, 0, 3, (2, 0), 0),
+             (16, 0, 3, (1, 1), 0),
+             (17, 0, 3, (2, 1), 0),
+             (18, 0, 3, (1, 0), 0),
+             (19, 1, 3, (4, 0), 0),
+             (20, 1, 3, (4, 1), 0),
+             (21, 0, 3, (2, 0), 0),
+             (22, 2, 1, (4, 2), 6),
+             (23, 0, 3, (1, 1), 0),
+             (24, 0, 3, (2, 1), 0),
+             (25, 0, 0, (0, 0), 0),
+             (26, 1, 0, (4, 0), 0),
+             (27, 1, 0, (3, 1), 0)]
+
+    mechs = [(0, 0, 0, (0, 0)),
+             (1, 0, 0, (0, 0)),
+             (2, 0, 0, (0, 0)),
+             (3, 0, 0, (0, 0)),
+             (4, 0, 0, (3, 0)),
+             (5, 0, 0, (3, 1)),
+             (6, 0, 1, (4, 2)),
+             (7, 0, 0, (3, 3)),
+             (8, 0, 0, (6, 6))]
+
+    # Re-loop the baby
+    ret = await contract.simulator(
+        20,
+        7,
+        mechs,
+        atoms,
+        instructions_length,
+        instructions,
+        [(0, 0, (0, 0))],
+        [(0, (6, 6))],
+        [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0), (4, 1), (3, 3), (4, 3), (5, 3)],
+        [(3, 0), (3, 1), (4, 2), (5, 4), (6, 4)],
+        [0, 0, 1, 2],
+    ).call()
+
     events = ret.main_call_events
     LOGGER.info(events)
 
-    get_atoms(events, 6)
-    # get_mechs(events, 5)
+    # 5 for mechs, 6 for atoms and 9 for instructions
+    get_object_events(events, 6)
 
-    # LOGGER.info(
-    #     f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
+    LOGGER.info(
+        f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
 
     # # Organize events into record dict
     # record = ret.main_call_events[0].arr
