@@ -26,6 +26,17 @@ struct AtomSinkState {
     index: Grid,
 }
 
+func iterate_sinks{range_check_ptr}(
+    atoms_len: felt,
+    atoms: AtomState*,
+    atom_sinks_len: felt,
+    atom_sinks: AtomSinkState*,
+    delivered_accumulated_atoms_len: felt,
+    delivered_accumulated_atoms: AtomState*,
+) -> (atoms_new: AtomState*) {
+    return (atoms_new=atoms);
+}
+
 func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (is_moved: felt, atoms_new: AtomState*) {
@@ -37,7 +48,7 @@ func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     if (atom.status == ns_atoms.FREE) {
         return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
     }
-    if (atom.possessed_by == mech_id) {
+    if (atom.possessed_by == mech_id and atom.status == ns_atoms.POSSESSED) {
         // TODO make a generic copy function which takes i, atoms and AtomState and returns atoms_new
         let (atoms_new: AtomState*) = alloc();
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
@@ -54,8 +65,33 @@ func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
-func update_atoms_status{syscall_ptr: felt*, range_check_ptr}(
-    mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*, status: felt
+func release_atom{range_check_ptr}(
+    mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
+) -> (atoms_new: AtomState*) {
+    alloc_locals;
+    if (atoms_len == i) {
+        return (atoms_new=atoms);
+    }
+    tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
+    if (atom.status == ns_atoms.POSSESSED and pos.x == atom.index.x and pos.y == atom.index.y) {
+        // TODO make a generic copy function which takes i, atoms and AtomState and returns atoms_new
+        let (atoms_new: AtomState*) = alloc();
+        tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
+        tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
+        memcpy(atoms_new, atoms, len_1);
+        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, ns_atoms.FREE, pos, 0);
+        memcpy(
+            atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE,
+            atoms + len_1 + ns_atoms.ATOM_STATE_SIZE,
+            len_2,
+        );
+        return (atoms_new=atoms_new);
+    }
+    return release_atom(mech_id, pos, i + 1, atoms_len, atoms);
+}
+
+func pick_up_atom{range_check_ptr}(
+    mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (atoms_new: AtomState*) {
     alloc_locals;
     if (atoms_len == i) {
@@ -67,7 +103,7 @@ func update_atoms_status{syscall_ptr: felt*, range_check_ptr}(
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
         tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
         memcpy(atoms_new, atoms, len_1);
-        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, status, pos, mech_id);
+        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, ns_atoms.POSSESSED, pos, mech_id);
         memcpy(
             atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE,
             atoms + len_1 + ns_atoms.ATOM_STATE_SIZE,
@@ -75,7 +111,7 @@ func update_atoms_status{syscall_ptr: felt*, range_check_ptr}(
         );
         return (atoms_new=atoms_new);
     }
-    return update_atoms_status(mech_id, pos, i + 1, atoms_len, atoms, status);
+    return pick_up_atom(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
 func populate_faucets{range_check_ptr}(
@@ -86,7 +122,7 @@ func populate_faucets{range_check_ptr}(
         return atoms_len;
     }
     tempvar faucet = [faucets];
-    let is_free = check_faucet_free(faucet.index, atoms_len, atoms);
+    let is_free = check_grid_free(faucet.index, atoms_len, atoms);
     if (is_free == 1) {
         assert [atoms + atoms_len * ns_atoms.ATOM_STATE_SIZE] = AtomState(atoms_len, faucet.type, ns_atoms.FREE, Grid(faucet.index.x, faucet.index.y), 0);
         return populate_faucets(
@@ -98,7 +134,7 @@ func populate_faucets{range_check_ptr}(
     );
 }
 
-func check_faucet_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomState*) -> felt {
+func check_grid_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomState*) -> felt {
     if (atoms_len == 0) {
         return 1;
     }
@@ -106,5 +142,16 @@ func check_faucet_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomS
     if (pos.x == atom.index.x and pos.y == atom.index.y and atom.status == ns_atoms.FREE) {
         return 0;
     }
-    return check_faucet_free(pos, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
+    return check_grid_free(pos, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
+}
+
+func check_grid_filled{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomState*) -> felt {
+    if (atoms_len == 0) {
+        return 0;
+    }
+    tempvar atom = [atoms];
+    if (pos.x == atom.index.x and pos.y == atom.index.y and atom.status == ns_atoms.FREE) {
+        return 1;
+    }
+    return check_grid_filled(pos, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
 }
