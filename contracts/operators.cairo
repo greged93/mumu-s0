@@ -94,8 +94,10 @@ func iterate_operators{syscall_ptr: felt*, range_check_ptr}(
     local atoms_new: AtomState*;
     if (is_valid_operation == 1) {
         let (a_new_1) = set_atoms_consumed(atoms_len, atoms, 0, input_length, operator_inputs);
-        set_atoms_output(atoms_len, a_new_1, 0, output_length, operator_outputs, operator_type);
-        assert atoms_new_len = atoms_len + output_length;
+        set_atoms_output(
+            atoms_len - input_length, a_new_1, 0, output_length, operator_outputs, operator_type
+        );
+        assert atoms_new_len = atoms_len + output_length - input_length;
         assert atoms_new = a_new_1;
         tempvar range_check_ptr = range_check_ptr;
         tempvar syscall_ptr = syscall_ptr;
@@ -183,13 +185,8 @@ func set_atoms_consumed{syscall_ptr: felt*, range_check_ptr}(
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
         tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
         memcpy(atoms_new, atoms, len_1);
-        assert [atoms_new + len_1] = AtomState(atom.id, atom.type, ns_atoms.CONSUMED, atom.index, atom.possessed_by);
-        memcpy(
-            atoms_new + len_1 + ns_atoms.ATOM_STATE_SIZE,
-            atoms + len_1 + ns_atoms.ATOM_STATE_SIZE,
-            len_2,
-        );
-        return set_atoms_consumed(atoms_len, atoms_new, i + 1, operator_input_len, operator_input);
+        memcpy(atoms_new + len_1, atoms + len_1 + ns_atoms.ATOM_STATE_SIZE, len_2);
+        return set_atoms_consumed(atoms_len - 1, atoms_new, i, operator_input_len, operator_input);
     }
     return set_atoms_consumed(atoms_len, atoms, i + 1, operator_input_len, operator_input);
 }
