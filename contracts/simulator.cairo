@@ -55,11 +55,6 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     local base_cost = base_cost_operators + base_cost_mechs;
 
     //
-    // Delivered accumulated atoms
-    //
-    let (local delivered_accumulated_atoms: AtomState*) = alloc();
-
-    //
     // Forward system by n_cycles, emitting frames; a frame carries all objects with their states i.e. frame == state screenshot
     //
     simulate_loop(
@@ -84,8 +79,6 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        0,
-        delivered_accumulated_atoms,
         base_cost,
     );
 
@@ -114,8 +107,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-    delivered_accumulated_atoms_len: felt,
-    delivered_accumulated_atoms: AtomState*,
     cost: felt,
 ) {
     alloc_locals;
@@ -130,14 +121,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     // emit_arr(9, frame_instructions);
 
     // simulate one frame based on current state + instructions
-    let (
-        mechs_new,
-        atoms_len_new,
-        atoms_new,
-        delivered_accumulated_atoms_len_new,
-        delivered_accumulated_atoms_new,
-        cost_increase,
-    ) = simulate_one_frame(
+    let (mechs_new, atoms_len_new, atoms_new, cost_increase) = simulate_one_frame(
         board_dimension,
         instructions_sets_len,
         frame_instructions,
@@ -155,8 +139,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        delivered_accumulated_atoms_len,
-        delivered_accumulated_atoms,
     );
 
     simulate_loop(
@@ -181,8 +163,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        delivered_accumulated_atoms_len_new,
-        delivered_accumulated_atoms_new,
         cost + cost_increase,
     );
     return ();
@@ -206,16 +186,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-    delivered_accumulated_atoms_len: felt,
-    delivered_accumulated_atoms: AtomState*,
-) -> (
-    mechs_new: MechState*,
-    atoms_len_new: felt,
-    atoms_new: AtomState*,
-    delivered_accumulated_atoms_len: felt,
-    delivered_accumulated_atoms: AtomState*,
-    cost_increase: felt,
-) {
+) -> (mechs_new: MechState*, atoms_len_new: felt, atoms_new: AtomState*, cost_increase: felt) {
     alloc_locals;
 
     let (atoms_new: AtomState*) = alloc();
@@ -252,24 +223,10 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     //
     // Iterate through atom sinks
     //
-    let (atoms_new) = iterate_sinks(
-        atoms_len_new,
-        atoms_new,
-        atom_sinks_len,
-        atom_sinks,
-        delivered_accumulated_atoms_len,
-        delivered_accumulated_atoms,
-    );
+    let (atoms_new) = iterate_sinks(atoms_len_new, atoms_new, atom_sinks_len, atom_sinks);
 
     // emit_mechs(mechs_len, mechs_new);
     emit_atoms(atoms_len_new, atoms_new);
     Check.emit(1000);
-    return (
-        mechs_new,
-        atoms_len_new,
-        atoms_new,
-        delivered_accumulated_atoms_len,
-        delivered_accumulated_atoms,
-        cost_increase,
-    );
+    return (mechs_new, atoms_len_new, atoms_new, cost_increase,);
 }

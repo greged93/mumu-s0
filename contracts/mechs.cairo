@@ -60,10 +60,8 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     let can_move_right = is_le(mech.index.x, board_dimension - 2);
     if (instruction == ns_instructions.D and can_move_right == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 1, 0);
-        let (is_moved, atoms_new) = update_atoms_moved(
-            mech.id, Grid(mech.index.x + 1, mech.index.y), 0, atoms_len, atoms
-        );
-        let inc = get_cost_increase(is_moved);
+        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
+        let inc = get_cost_increase(has_atom);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -72,17 +70,15 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions_len,
             instructions,
             atoms_len,
-            atoms_new,
+            atoms,
             cost_increase + inc,
         );
     }
     let can_move_left = is_le(1, mech.index.x);
     if (instruction == ns_instructions.A and can_move_left == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, -1, 0);
-        let (is_moved, atoms_new) = update_atoms_moved(
-            mech.id, Grid(mech.index.x - 1, mech.index.y), 0, atoms_len, atoms
-        );
-        let inc = get_cost_increase(is_moved);
+        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
+        let inc = get_cost_increase(has_atom);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -91,17 +87,15 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions_len,
             instructions,
             atoms_len,
-            atoms_new,
+            atoms,
             cost_increase + inc,
         );
     }
     let can_move_down = is_le(mech.index.y, board_dimension - 2);
     if (instruction == ns_instructions.S and can_move_down == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 0, 1);
-        let (is_moved, atoms_new) = update_atoms_moved(
-            mech.id, Grid(mech.index.x, mech.index.y + 1), 0, atoms_len, atoms
-        );
-        let inc = get_cost_increase(is_moved);
+        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
+        let inc = get_cost_increase(has_atom);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -110,17 +104,15 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions_len,
             instructions,
             atoms_len,
-            atoms_new,
+            atoms,
             cost_increase + inc,
         );
     }
     let can_move_up = is_le(1, mech.index.y);
     if (instruction == ns_instructions.W and can_move_up == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 0, -1);
-        let (is_moved, atoms_new) = update_atoms_moved(
-            mech.id, Grid(mech.index.x, mech.index.y - 1), 0, atoms_len, atoms
-        );
-        let inc = get_cost_increase(is_moved);
+        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
+        let inc = get_cost_increase(has_atom);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -129,7 +121,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions_len,
             instructions,
             atoms_len,
-            atoms_new,
+            atoms,
             cost_increase + inc,
         );
     }
@@ -198,6 +190,19 @@ func update_mechs_status{range_check_ptr}(
     assert [mechs_new + len_1] = MechState(mech.id, mech.type, status, mech.index);
     memcpy(mechs_new + len_1 + ns_mechs.MECH_SIZE, mechs + len_1 + ns_mechs.MECH_SIZE, len_2);
     return (mechs_new=mechs_new);
+}
+
+func check_possesses_atom{range_check_ptr}(
+    mech_id: felt, atoms_len: felt, atoms: AtomState*
+) -> felt {
+    if (atoms_len == 0) {
+        return 0;
+    }
+    tempvar atom = [atoms];
+    if (atom.status == ns_atoms.POSSESSED and atom.possessed_by == mech_id) {
+        return 1;
+    }
+    return check_possesses_atom(mech_id, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
 }
 
 func get_cost_increase{}(is_moved: felt) -> felt {

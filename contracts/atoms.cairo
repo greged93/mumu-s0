@@ -73,7 +73,7 @@ func release_atom{range_check_ptr}(
         return (atoms_new=atoms);
     }
     tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
-    if (atom.status == ns_atoms.POSSESSED and pos.x == atom.index.x and pos.y == atom.index.y) {
+    if (atom.status == ns_atoms.POSSESSED and atom.possessed_by == mech_id) {
         // TODO make a generic copy function which takes i, atoms and AtomState and returns atoms_new
         let (atoms_new: AtomState*) = alloc();
         tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
