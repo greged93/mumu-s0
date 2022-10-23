@@ -12,6 +12,7 @@ from contracts.atoms import (
     release_atom,
     pick_up_atom,
     check_grid_free,
+    check_grid_filled,
 )
 
 from contracts.events import Check
@@ -132,7 +133,8 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             cost_increase + inc,
         );
     }
-    if (instruction == ns_instructions.Z and mech.status == ns_mechs.OPEN) {
+    let is_filled = check_grid_filled(mech.index, atoms_len, atoms);
+    if (instruction == ns_instructions.Z and mech.status == ns_mechs.OPEN and is_filled == 1) {
         let (atoms_new) = pick_up_atom(mech.id, mech.index, 0, atoms_len, atoms);
         let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.CLOSE);
         return iterate_mechs(
