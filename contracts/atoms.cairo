@@ -3,7 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.constants import Grid, ns_atoms, ns_atom_faucets
+from contracts.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks
 
 from contracts.events import Check
 
@@ -27,14 +27,37 @@ struct AtomSinkState {
 }
 
 func iterate_sinks{range_check_ptr}(
-    atoms_len: felt,
-    atoms: AtomState*,
-    atom_sinks_len: felt,
-    atom_sinks: AtomSinkState*,
-    delivered_accumulated_atoms_len: felt,
-    delivered_accumulated_atoms: AtomState*,
-) -> (atoms_new: AtomState*) {
-    return (atoms_new=atoms);
+    atom_sinks_len: felt, atom_sinks: AtomSinkState*, atoms_len: felt, atoms: AtomState*
+) -> (atoms_len_new: felt, atoms_new: AtomState*) {
+    if (atom_sinks_len == 0) {
+        return (atoms_len_new=atoms_len, atoms_new=atoms);
+    }
+    tempvar sink = [atom_sinks];
+    let (atoms_len_new, atoms_new) = sink_atoms(sink, 0, atoms_len, atoms);
+    return iterate_sinks(
+        atom_sinks_len - 1, atom_sinks + ns_atom_sinks.ATOM_SINK_SIZE, atoms_len_new, atoms_new
+    );
+}
+
+func sink_atoms{range_check_ptr}(
+    sink: AtomSinkState, i: felt, atoms_len: felt, atoms: AtomState*
+) -> (atoms_len_new: felt, atoms_new: AtomState*) {
+    alloc_locals;
+    if (atoms_len == i) {
+        return (atoms_len_new=atoms_len, atoms_new=atoms);
+    }
+    tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
+    if (sink.index.x == atom.index.x and sink.index.y == atom.index.y and
+        atom.status == ns_atoms.FREE) {
+        // TODO make a generic copy functin which takes i, atoms and AtomState and returns atoms_new
+        let (atoms_new: AtomState*) = alloc();
+        tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
+        tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
+        memcpy(atoms_new, atoms, len_1);
+        memcpy(atoms_new + len_1, atoms + len_1 + ns_atoms.ATOM_STATE_SIZE, len_2);
+        return sink_atoms(sink, i, atoms_len - 1, atoms_new);
+    }
+    return sink_atoms(sink, i + 1, atoms_len, atoms);
 }
 
 func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(

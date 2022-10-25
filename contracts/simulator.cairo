@@ -223,7 +223,9 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     //
     // Iterate through atom sinks
     //
-    let (atoms_new) = iterate_sinks(atoms_len_new, atoms_new, atom_sinks_len, atom_sinks);
+    let (atoms_len_new, atoms_new) = iterate_sinks(
+        atom_sinks_len, atom_sinks, atoms_len_new, atoms_new
+    );
 
     // emit_mechs(mechs_len, mechs_new);
     emit_atoms(atoms_len_new, atoms_new);

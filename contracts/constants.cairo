@@ -36,6 +36,10 @@ namespace ns_atom_faucets {
     const ATOM_FAUCET_SIZE = 4;
 }
 
+namespace ns_atom_sinks {
+    const ATOM_SINK_SIZE = 3;
+}
+
 namespace ns_mechs {
     const MECH_SIZE = 5;
 
