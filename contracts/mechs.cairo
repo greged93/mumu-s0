@@ -15,8 +15,6 @@ from contracts.atoms import (
     check_grid_filled,
 )
 
-from contracts.events import Check
-
 struct MechState {
     id: felt,
     type: felt,

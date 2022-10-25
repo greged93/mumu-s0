@@ -8,8 +8,6 @@ from contracts.grid import Grid, GRID_SIZE
 from contracts.atoms import AtomState
 from contracts.grid import check_position
 
-from contracts.events import Check
-
 struct OperatorType {
     input_atoms_len: felt,
     input_atoms: felt*,

@@ -5,8 +5,6 @@ from starkware.cairo.common.memcpy import memcpy
 
 from contracts.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks
 
-from contracts.events import Check
-
 struct AtomState {
     id: felt,
     type: felt,

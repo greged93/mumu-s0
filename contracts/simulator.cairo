@@ -2,6 +2,7 @@
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
+from starkware.starknet.common.syscalls import get_caller_address
 
 from contracts.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid
 
@@ -17,8 +18,7 @@ from contracts.operators import verify_valid, get_operators_cost, iterate_operat
 from contracts.instructions import get_frame_instruction_set
 from contracts.grid import Grid
 
-from contracts.events import Check
-from contracts.utils import emit_arr, emit_grid_arr, emit_mechs, emit_atoms
+from contracts.events import new_simulation, frame
 
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
@@ -53,6 +53,21 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let base_cost_operators = get_operators_cost(operators_type_len, operators_type, 0);
     let base_cost_mechs = get_mechs_cost(mechs_len, mechs, 0);
     local base_cost = base_cost_operators + base_cost_mechs;
+
+    let (caller) = get_caller_address();
+
+    new_simulation.emit(
+        solver=caller,
+        mechs_len=mechs_len,
+        mechs=mechs,
+        atoms_len=atoms_len,
+        atoms=atoms,
+        instructions_sets_len=instructions_sets_len,
+        instructions_sets=instructions_sets,
+        instructions_len=instructions_len,
+        instructions=instructions,
+        cost_accumulated=base_cost,
+    );
 
     //
     // Forward system by n_cycles, emitting frames; a frame carries all objects with their states i.e. frame == state screenshot
@@ -118,7 +133,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     get_frame_instruction_set(
         cycle, instructions_sets_len, instructions_sets, instructions, 0, frame_instructions, 0
     );
-    // emit_arr(9, frame_instructions);
 
     // simulate one frame based on current state + instructions
     let (mechs_new, atoms_len_new, atoms_new, cost_increase) = simulate_one_frame(
@@ -139,6 +153,16 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
+    );
+
+    tempvar new_cost = cost + cost_increase;
+
+    frame.emit(
+        mechs_len=mechs_len,
+        mechs=mechs_new,
+        atoms_len=atoms_len_new,
+        atoms=atoms_new,
+        cost_accumulated=new_cost,
     );
 
     simulate_loop(
@@ -163,7 +187,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        cost + cost_increase,
+        new_cost,
     );
     return ();
 }
@@ -227,8 +251,5 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         atom_sinks_len, atom_sinks, atoms_len_new, atoms_new
     );
 
-    // emit_mechs(mechs_len, mechs_new);
-    emit_atoms(atoms_len_new, atoms_new);
-    Check.emit(1000);
-    return (mechs_new, atoms_len_new, atoms_new, cost_increase,);
+    return (mechs_new, atoms_len_new, atoms_new, cost_increase);
 }
