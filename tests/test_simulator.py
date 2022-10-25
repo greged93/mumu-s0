@@ -74,7 +74,7 @@ async def test(starknet):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
-    N = 90
+    N = 10
 
     # # Loop the baby
     ret = await contract.simulator(
@@ -94,10 +94,7 @@ async def test(starknet):
 
     events = ret.main_call_events
 
-    # 5 for mechs, 6 for atoms and 9 for instructions
-    get_object_events(events, 6)
+    LOGGER.info(events)
 
     LOGGER.info(
         f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
-
-
