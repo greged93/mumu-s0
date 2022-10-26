@@ -3,7 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks
+from contracts.simulator.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks
 
 struct AtomState {
     id: felt,

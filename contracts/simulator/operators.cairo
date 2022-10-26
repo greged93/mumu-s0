@@ -3,10 +3,10 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.constants import ns_grid, ns_operators, ns_atoms
-from contracts.grid import Grid, GRID_SIZE
-from contracts.atoms import AtomState
-from contracts.grid import check_position
+from contracts.simulator.constants import ns_grid, ns_operators, ns_atoms
+from contracts.simulator.grid import Grid, GRID_SIZE
+from contracts.simulator.atoms import AtomState
+from contracts.simulator.grid import check_position
 
 struct OperatorType {
     input_atoms_len: felt,

@@ -4,9 +4,9 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.math_cmp import is_le
 
-from contracts.constants import ns_mechs, ns_instructions, ns_atoms, ns_instructions_cost
-from contracts.grid import Grid
-from contracts.atoms import (
+from contracts.simulator.constants import ns_mechs, ns_instructions, ns_atoms, ns_instructions_cost
+from contracts.simulator.grid import Grid
+from contracts.simulator.atoms import (
     AtomState,
     update_atoms_moved,
     release_atom,
@@ -58,8 +58,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     let can_move_right = is_le(mech.index.x, board_dimension - 2);
     if (instruction == ns_instructions.D and can_move_right == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 1, 0);
-        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
-        let inc = get_cost_increase(has_atom);
+        let inc = get_cost_increase(mech.status);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -75,8 +74,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     let can_move_left = is_le(1, mech.index.x);
     if (instruction == ns_instructions.A and can_move_left == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, -1, 0);
-        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
-        let inc = get_cost_increase(has_atom);
+        let inc = get_cost_increase(mech.status);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -92,8 +90,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     let can_move_down = is_le(mech.index.y, board_dimension - 2);
     if (instruction == ns_instructions.S and can_move_down == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 0, 1);
-        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
-        let inc = get_cost_increase(has_atom);
+        let inc = get_cost_increase(mech.status);
         return iterate_mechs(
             board_dimension,
             mechs_len,
@@ -109,8 +106,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     let can_move_up = is_le(1, mech.index.y);
     if (instruction == ns_instructions.W and can_move_up == 1) {
         let (mechs_new) = update_mechs_moved(len_1, len_2, mech, mechs, 0, -1);
-        let has_atom = check_possesses_atom(mech.id, atoms_len, atoms);
-        let inc = get_cost_increase(has_atom);
+        let inc = get_cost_increase(mech.status);
         return iterate_mechs(
             board_dimension,
             mechs_len,

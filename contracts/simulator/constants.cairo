@@ -5,7 +5,7 @@ from starkware.cairo.common.math import abs_value, unsigned_div_rem
 from starkware.cairo.common.math_cmp import is_le
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.grid import Grid
+from contracts.simulator.grid import Grid
 
 namespace ns_grid {
     func diff{range_check_ptr}(a: Grid, b: Grid) -> (diff: Grid) {

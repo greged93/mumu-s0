@@ -1,10 +1,10 @@
 %lang starknet
 
-from contracts.events import Check
-from contracts.constants import ns_grid, ns_mechs, ns_atoms
-from contracts.grid import Grid, GRID_SIZE
-from contracts.mechs import MechState
-from contracts.atoms import AtomState
+from contracts.simulator.events import Check
+from contracts.simulator.constants import ns_grid, ns_mechs, ns_atoms
+from contracts.simulator.grid import Grid, GRID_SIZE
+from contracts.simulator.mechs import MechState
+from contracts.simulator.atoms import AtomState
 
 func emit_arr{syscall_ptr: felt*, range_check_ptr}(arr_len: felt, arr: felt*) {
     if (arr_len == 0) {
