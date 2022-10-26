@@ -4,21 +4,21 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.starknet.common.syscalls import get_caller_address
 
-from contracts.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid
+from contracts.simulator.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid
 
-from contracts.mechs import MechState, get_mechs_cost, iterate_mechs
-from contracts.atoms import (
+from contracts.simulator.mechs import MechState, get_mechs_cost, iterate_mechs
+from contracts.simulator.atoms import (
     AtomState,
     AtomFaucetState,
     AtomSinkState,
     populate_faucets,
     iterate_sinks,
 )
-from contracts.operators import verify_valid, get_operators_cost, iterate_operators
-from contracts.instructions import get_frame_instruction_set
-from contracts.grid import Grid
+from contracts.simulator.operators import verify_valid, get_operators_cost, iterate_operators
+from contracts.simulator.instructions import get_frame_instruction_set
+from contracts.simulator.grid import Grid
 
-from contracts.events import new_simulation, frame
+from contracts.simulator.events import new_simulation, frame
 
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
@@ -66,6 +66,12 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         instructions_sets=instructions_sets,
         instructions_len=instructions_len,
         instructions=instructions,
+        operators_inputs_len=operators_inputs_len,
+        operators_inputs=operators_inputs,
+        operators_outputs_len=operators_outputs_len,
+        operators_outputs=operators_outputs,
+        operators_type_len=operators_type_len,
+        operators_type=operators_type,
         cost_accumulated=base_cost,
     );
 

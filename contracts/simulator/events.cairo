@@ -1,7 +1,8 @@
 %lang starknet
 
-from contracts.mechs import MechState
-from contracts.atoms import AtomState
+from contracts.simulator.mechs import MechState
+from contracts.simulator.atoms import AtomState
+from contracts.simulator.grid import Grid
 
 //
 // Standard for events generation of Frame
@@ -18,6 +19,12 @@ func new_simulation(
     instructions_sets: felt*,
     instructions_len: felt,
     instructions: felt*,
+    operators_inputs_len: felt,
+    operators_inputs: Grid*,
+    operators_outputs_len: felt,
+    operators_outputs: Grid*,
+    operators_type_len: felt,
+    operators_type: felt*,
     cost_accumulated: felt,
 ) {
 }

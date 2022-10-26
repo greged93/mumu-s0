@@ -43,7 +43,7 @@ async def starknet():
 async def test(starknet):
 
     # Deploy contract
-    contract = await starknet.deploy(source='contracts/simulator.cairo')
+    contract = await starknet.deploy(source='contracts/simulator/simulator.cairo')
     LOGGER.info(f'> Deployed simulator.cairo.')
 
     i = ["Z,D,X,A,_,_,_,_,_,_,_",
@@ -90,6 +90,9 @@ async def test(starknet):
         'solver': solver,
         'instructions length per mech': events[0].instructions_sets,
         'instructions': events[0].instructions,
+        'operators input': events[0].operators_inputs,
+        'operators ouput': events[0].operators_outputs,
+        'operators type': events[0].operators_type,
         'frames': [
             {
                 f'frame {i}': i,
