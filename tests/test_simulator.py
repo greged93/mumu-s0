@@ -54,26 +54,30 @@ async def test(starknet):
          "Z,D,X,A",
          "Z,S,X,W,Z,S,D,X,A,W",
          "Z,S,S,A,X,D,W,W",
-         "Z,S,S,D,X,A,W,W"]
+         "Z,A,A,A,A,S,X,W,D,D,D,D",
+         "_,_,_,_,_,_,_,_,Z,S,X,W"]
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
-    N = 10
+    N = 90
 
     # # Loop the baby
     ret = await contract.simulator(
         N,
         7,
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
-         (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)), (8, 0, 0, (5, 4))],
+         (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)),
+         (8, 0, 0, (5, 4)), (9, 0, 0, (6, 5))],
         [],
         instructions_length,
         instructions,
         [(0, 0, (0, 0))],
         [(0, (6, 6))],
-        [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0), (4, 1), (3, 3), (4, 3), (5, 3)],
-        [(3, 0), (3, 1), (4, 2), (5, 4), (6, 4)],
-        [0, 0, 1, 2],
+        [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0),
+         (4, 1), (3, 3), (4, 3), (5, 3), (1, 5)],
+        [(3, 0), (3, 1), (4, 2), (5, 4), (6, 4),
+         (2, 5), (3, 5), (4, 5), (5, 5), (6, 5)],
+        [0, 0, 1, 2, 3],
     ).call()
 
     events = ret.main_call_events
@@ -88,6 +92,7 @@ async def test(starknet):
         'instructions': events[0].instructions,
         'frames': [
             {
+                f'frame {i}': i,
                 'mechs': [
                     {
                         f'{m.id}': m,
@@ -96,7 +101,7 @@ async def test(starknet):
                     f'{a.id}': a,
                 } for a in e.atoms],
                 'accumulated cost': e.cost_accumulated,
-            } for e in events]
+            } for (i, e) in enumerate(events)]
     }
 
     #
