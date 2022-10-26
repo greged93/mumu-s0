@@ -25,6 +25,7 @@ namespace ns_atoms {
     const HAZELNUT = 1;
     const CHOCOLATE = 2;
     const TRUFFLE = 3;
+    const SAFFRON = 4;
 
     const ATOM_STATE_SIZE = 6;
 }
@@ -55,10 +56,12 @@ namespace ns_operators {
     const STIR = 0;
     const SHAKE = 1;
     const STEAM = 2;
+    const SMASH = 3;
 
     const STATIC_COST_STIR = 250;
     const STATIC_COST_SHAKE = 500;
     const STATIC_COST_STEAM = 750;
+    const STATIC_COST_SMASH = 1000;
 }
 
 namespace ns_instructions {

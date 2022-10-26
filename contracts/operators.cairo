@@ -217,6 +217,9 @@ func get_operator_lengths{}(operator: felt) -> (input: felt, output: felt) {
     if (operator == ns_operators.STEAM) {
         return (input=3, output=2);
     }
+    if (operator == ns_operators.SMASH) {
+        return (input=1, output=5);
+    }
     with_attr error_message("unknow operator") {
         assert 0 = 1;
     }
@@ -240,6 +243,9 @@ func get_operators_cost{range_check_ptr}(
     if (operator_type == ns_operators.STEAM) {
         assert cost = ns_operators.STATIC_COST_STEAM;
     }
+    if (operator_type == ns_operators.SMASH) {
+        assert cost = ns_operators.STATIC_COST_SMASH;
+    }
     return get_operators_cost(operators_type_len - 1, operators_type + 1, sum + cost);
 }
 
@@ -257,6 +263,9 @@ func get_input_flavor{}(operator_type: felt, index: felt) -> felt {
             return ns_atoms.CHOCOLATE;
         }
     }
+    if (operator_type == ns_operators.SMASH) {
+        return ns_atoms.TRUFFLE;
+    }
     with_attr error_message("incorrect operator") {
         assert 0 = 1;
     }
@@ -273,6 +282,13 @@ func get_output_flavor{}(operator_type: felt, index: felt) -> felt {
     if (operator_type == ns_operators.STEAM) {
         if (index == 0) {
             return ns_atoms.TRUFFLE;
+        } else {
+            return ns_atoms.VANILLA;
+        }
+    }
+    if (operator_type == ns_operators.SMASH) {
+        if (index == 4) {
+            return ns_atoms.SAFFRON;
         } else {
             return ns_atoms.VANILLA;
         }
