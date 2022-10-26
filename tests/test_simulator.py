@@ -1,13 +1,11 @@
 from re import M
+import json
 import pytest
 from starkware.starknet.testing.starknet import Starknet
 import asyncio
 import logging
 
 LOGGER = logging.getLogger(__name__)
-
-PRIME = 3618502788666131213697322783095070105623107215331596699973092056135872020481
-PRIME_HALF = PRIME//2
 
 
 def adjust_from_string(instruction):
@@ -28,20 +26,6 @@ def adjust_from_string(instruction):
         if s == "_":
             i.append(6)
     return i
-
-
-def get_object_events(events, size):
-    j = 0
-    obj = ()
-    for e in events:
-        if len(obj) == size:
-            LOGGER.info(obj)
-            obj = ()
-        if e.value == 1000:
-            LOGGER.info(f'NEW FRAME {j}')
-            j += 1
-            continue
-        obj += (e.value,)
 
 
 @pytest.fixture(scope='module')
@@ -94,7 +78,32 @@ async def test(starknet):
 
     events = ret.main_call_events
 
-    LOGGER.info(events)
-
     LOGGER.info(
         f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
+
+    solver = events[0].solver
+    frames = {
+        'solver': solver,
+        'instructions length per mech': events[0].instructions_sets,
+        'instructions': events[0].instructions,
+        'frames': [
+            {
+                'mechs': [
+                    {
+                        f'{m.id}': m,
+                    } for m in e.mechs],
+                'atoms': [{
+                    f'{a.id}': a,
+                } for a in e.atoms],
+                'accumulated cost': e.cost_accumulated,
+            } for e in events]
+    }
+
+    #
+    # Export record
+    #
+    path = 'artifacts/test_simulator.json' if N > 20 else 'artifacts/test_simulator_short.json'
+    json_string = json.dumps(frames)
+    with open(path, 'w') as f:
+        json.dump(json_string, f)
+    LOGGER.info(f'> Frame records exported to {path}.')
