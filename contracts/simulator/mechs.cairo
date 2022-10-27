@@ -44,7 +44,7 @@ func get_mechs_cost{range_check_ptr}(mechs_len: felt, mechs: MechState*, sum: fe
 // @param i The current mech index
 // @param instructions The array of instructions for each mech
 // @param atoms The array of atoms on the board
-// @param instructions_sets The length of each mech's instructions
+// @param pc The array of program counters
 // @param cost_increase The sum of increase in cost from mechs operations
 // @return atoms_new The array of updated atoms
 // @return mechs_new The array of updated mechs
@@ -53,16 +53,17 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     board_dimension: felt,
     mechs_len: felt,
     mechs: MechState*,
+    pc: felt*,
     i: felt,
     instructions_len: felt,
     instructions: felt*,
     atoms_len: felt,
     atoms: AtomState*,
     cost_increase: felt,
-) -> (atoms: AtomState*, mechs: MechState*, cost_increase: felt) {
+) -> (atoms: AtomState*, mechs: MechState*, pc: felt*, cost_increase: felt) {
     alloc_locals;
     if (instructions_len == i) {
-        return (atoms, mechs, cost_increase);
+        return (atoms, mechs, pc, cost_increase);
     }
 
     tempvar instruction = [instructions + i];
@@ -78,6 +79,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -94,6 +96,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -110,6 +113,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -126,6 +130,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -142,6 +147,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -158,6 +164,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             board_dimension,
             mechs_len,
             mechs_new,
+            pc,
             i + 1,
             instructions_len,
             instructions,
@@ -166,10 +173,73 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             cost_increase + ns_instructions_cost.SINGLETON_PUT,
         );
     }
+    if (instruction == ns_instructions.G and mech.status == ns_mechs.OPEN and is_filled == 1) {
+        let (atoms_new) = pick_up_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.CLOSE);
+        return iterate_mechs(
+            board_dimension,
+            mechs_len,
+            mechs_new,
+            pc,
+            i + 1,
+            instructions_len,
+            instructions,
+            atoms_len,
+            atoms_new,
+            cost_increase + ns_instructions_cost.SINGLETON_GET,
+        );
+    }
+    if (instruction == ns_instructions.G and mech.status == ns_mechs.OPEN and is_filled == 0) {
+        let (pc_new) = substract_pc(mechs_len, pc, i);
+        return iterate_mechs(
+            board_dimension,
+            mechs_len,
+            mechs,
+            pc_new,
+            i + 1,
+            instructions_len,
+            instructions,
+            atoms_len,
+            atoms,
+            cost_increase,
+        );
+    }
+    if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE and is_free == 1) {
+        let (atoms_new) = release_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.OPEN);
+        return iterate_mechs(
+            board_dimension,
+            mechs_len,
+            mechs_new,
+            pc,
+            i + 1,
+            instructions_len,
+            instructions,
+            atoms_len,
+            atoms_new,
+            cost_increase + ns_instructions_cost.SINGLETON_PUT,
+        );
+    }
+    if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE and is_free == 0) {
+        let (pc_new) = substract_pc(mechs_len, pc, i);
+        return iterate_mechs(
+            board_dimension,
+            mechs_len,
+            mechs,
+            pc_new,
+            i + 1,
+            instructions_len,
+            instructions,
+            atoms_len,
+            atoms,
+            cost_increase,
+        );
+    }
     return iterate_mechs(
         board_dimension,
         mechs_len,
         mechs,
+        pc,
         i + 1,
         instructions_len,
         instructions,
@@ -177,6 +247,31 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
         atoms,
         cost_increase,
     );
+}
+
+// @notice Initiates pc array to zero
+// @param pc The current empty pc array
+// @param i The current mech index
+// @return pc The empty pc array
+func init_pc{range_check_ptr}(pc_len: felt, pc: felt*, i: felt) -> (pc: felt*) {
+    if (pc_len == 0) {
+        return (pc=pc);
+    }
+    assert [pc + i] = 0;
+    return init_pc(pc_len - 1, pc, i + 1);
+}
+
+// @notice Substracts one to mech pc
+// @param pc The array of program counters for mechs
+// @param i The current mech index
+// @return The updated program counters
+func substract_pc{range_check_ptr}(pc_len: felt, pc: felt*, i: felt) -> (pc_new: felt*) {
+    alloc_locals;
+    let (pc_new) = alloc();
+    memcpy(pc_new, pc, i);
+    assert [pc_new + i] = [pc + i] - 1;
+    memcpy(pc_new + i + 1, pc + i + 1, pc_len - i - 1);
+    return (pc_new=pc_new);
 }
 
 // @notice Updates the mechs array after movement

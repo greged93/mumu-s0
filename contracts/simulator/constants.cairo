@@ -65,13 +65,15 @@ namespace ns_operators {
 }
 
 namespace ns_instructions {
-    const W = 0;
-    const A = 1;
-    const S = 2;
-    const D = 3;
-    const Z = 4;
-    const X = 5;
-    const SKIP = 6;
+    const W = 0;  // up
+    const A = 1;  // left
+    const S = 2;  // down
+    const D = 3;  // right
+    const Z = 4;  // get
+    const X = 5;  // put
+    const G = 6;  // block-get
+    const H = 7;  // block-put
+    const SKIP = 8;  // skip
 }
 
 namespace ns_instructions_cost {

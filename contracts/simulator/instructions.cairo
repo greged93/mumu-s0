@@ -17,6 +17,7 @@ struct InstructionSet {
 // @param offset The offset for each mech's instructions in instructions array
 func get_frame_instruction_set{syscall_ptr: felt*, range_check_ptr}(
     cycle: felt,
+    pc: felt*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions: felt*,
@@ -28,10 +29,12 @@ func get_frame_instruction_set{syscall_ptr: felt*, range_check_ptr}(
         return ();
     }
     tempvar l = [instructions_sets];
-    let (_, r) = unsigned_div_rem(cycle, l);
+    tempvar program_counter = [pc];
+    let (_, r) = unsigned_div_rem(cycle + program_counter, l);
     assert [frame_instructions + frame_instructions_len] = [instructions + r + offset];
     return get_frame_instruction_set(
         cycle,
+        pc + 1,
         instructions_sets_len - 1,
         instructions_sets + 1,
         instructions,
