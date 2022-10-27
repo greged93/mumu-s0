@@ -8,6 +8,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
+# TODO update based on new implementation for G and H
 def adjust_from_string(instruction):
     i = []
     for s in instruction:
@@ -23,8 +24,12 @@ def adjust_from_string(instruction):
             i.append(4)
         if s == "X":
             i.append(5)
-        if s == "_":
+        if s == "G":
             i.append(6)
+        if s == "H":
+            i.append(7)
+        if s == "_":
+            i.append(8)
     return i
 
 
@@ -50,7 +55,7 @@ async def test(starknet):
          "_,Z,D,D,X,A,A,_,_,_,_",
          "_,_,Z,S,D,X,A,W,_,_,_",
          "_,_,_,Z,S,D,D,X,A,A,W",
-         "Z,D,X,A",
+         "G,D,X,A",
          "Z,D,X,A",
          "Z,S,X,W,Z,S,D,X,A,W",
          "Z,S,S,A,X,D,W,W",
@@ -59,7 +64,7 @@ async def test(starknet):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
-    N = 90
+    N = 50
 
     # # Loop the baby
     ret = await contract.simulator(
