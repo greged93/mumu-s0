@@ -24,6 +24,11 @@ struct Operator {
     type: OperatorType,
 }
 
+// @notice Verifies all operators are valid following 3 rules: 1. no overlap between operators
+// @notice 2. all operators are within bounds 3. for a given operator, inputs and outputs should be continuous
+// @param operators_type The array of types for each operator
+// @param operator_input The array of positions for each input operator
+// @param operator_output The array of positions for each output operator
 func verify_valid{range_check_ptr}(
     operators_type_len: felt, operators_type: felt*, operator_input: Grid*, operator_output: Grid*
 ) {
@@ -49,6 +54,9 @@ func verify_valid{range_check_ptr}(
     );
 }
 
+// @notice Verifies one operator is valid
+// @param len The length of the operator array
+// @param operator The array of operators
 func verify_valid_operator{range_check_ptr}(len: felt, operator: felt*) {
     if (len == 0) {
         return ();
@@ -62,6 +70,13 @@ func verify_valid_operator{range_check_ptr}(len: felt, operator: felt*) {
     return ();
 }
 
+// @notice Iterates and applies operators
+// @param atoms The array of atoms on the board
+// @param operator_inputs The array of positions for input operators
+// @param operator_outputs The array of positions for output operators
+// @param operator_type The array of types for operator
+// @return atoms_len_new The length of updated atoms
+// @return atoms_new The array of updated atoms
 func iterate_operators{syscall_ptr: felt*, range_check_ptr}(
     atoms_len: felt,
     atoms: AtomState*,
@@ -115,6 +130,13 @@ func iterate_operators{syscall_ptr: felt*, range_check_ptr}(
     );
 }
 
+// @notice Checks an operator can be applied i.e. inputs are correctly filled and outputs are empty
+// @param atoms The array of atoms on the board
+// @param operator_inputs The array of positions for input operators
+// @param operator_outputs The array of positions for output operators
+// @param operator_type The type for the operator
+// @param filled The amount of filled inputs
+// @return 1 if operator can be applied, 0 otherwise
 func check_operators{syscall_ptr: felt*, range_check_ptr}(
     atoms_len: felt,
     atoms: AtomState*,
@@ -168,6 +190,11 @@ func check_operators{syscall_ptr: felt*, range_check_ptr}(
     );
 }
 
+// @notice Sets the consumed atoms by deleting them
+// @param atoms The array of atoms on the board
+// @param operator_inputs The array of positions for input operators
+// @param operator_type The type for the operator
+// @return atoms_new The array of updated atoms
 func set_atoms_consumed{syscall_ptr: felt*, range_check_ptr}(
     atoms_len: felt, atoms: AtomState*, i: felt, operator_input_len: felt, operator_input: Grid*
 ) -> (atoms_new: AtomState*) {
@@ -189,6 +216,11 @@ func set_atoms_consumed{syscall_ptr: felt*, range_check_ptr}(
     return set_atoms_consumed(atoms_len, atoms, i + 1, operator_input_len, operator_input);
 }
 
+// @notice Sets the produced atoms
+// @param atoms The array of atoms on the board
+// @param i The current index
+// @param operator_outputs The array of positions for output operators
+// @param operator_type The type for the operator
 func set_atoms_output{}(
     atoms_len: felt,
     atoms: AtomState*,
@@ -207,6 +239,10 @@ func set_atoms_output{}(
     );
 }
 
+// @notice Returns the input and output length for a given operator
+// @param operator The operator type
+// @return input The input length of the operator
+// @return output The output length of the operator
 func get_operator_lengths{}(operator: felt) -> (input: felt, output: felt) {
     if (operator == ns_operators.STIR) {
         return (input=2, output=1);
@@ -226,6 +262,10 @@ func get_operator_lengths{}(operator: felt) -> (input: felt, output: felt) {
     return (input=0, output=0);
 }
 
+// @notice Returns the cost for the operators
+// @param operators_type The array of types for the operators
+// @param sum The sum of cost for the operators
+// @return The sum of cost for the operators
 func get_operators_cost{range_check_ptr}(
     operators_type_len: felt, operators_type: felt*, sum: felt
 ) -> felt {
@@ -249,6 +289,10 @@ func get_operators_cost{range_check_ptr}(
     return get_operators_cost(operators_type_len - 1, operators_type + 1, sum + cost);
 }
 
+// @notice Returns the input flavor at index  for a operator type
+// @param operator_type The type of the operator
+// @param index The index for the input flavor
+// @return The input flavor
 func get_input_flavor{}(operator_type: felt, index: felt) -> felt {
     if (operator_type == ns_operators.STIR) {
         return ns_atoms.VANILLA;
@@ -272,6 +316,10 @@ func get_input_flavor{}(operator_type: felt, index: felt) -> felt {
     return 0;
 }
 
+// @notice Returns the output flavor at index for a operator type
+// @param operator_type The type of the operator
+// @param index The index for the output flavor
+// @return The output flavor
 func get_output_flavor{}(operator_type: felt, index: felt) -> felt {
     if (operator_type == ns_operators.STIR) {
         return ns_atoms.HAZELNUT;

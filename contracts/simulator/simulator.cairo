@@ -20,6 +20,18 @@ from contracts.simulator.grid import Grid
 
 from contracts.simulator.events import new_simulation, frame
 
+// @notice Simulates the run for current inputs for n_cycles cycles
+// @param n_cycles The amount of cycles to simulate
+// @param board_dimension The dimensions of the board
+// @param mechs The array of mechs
+// @param atoms The arrays of atoms
+// @param instructions_sets The length of each mech's instructions
+// @param instructions The array of all mechs' instructions concatenated together
+// @param atom_faucets The array of faucets
+// @param atom_sinks The array of sinks
+// @param operators_inputs The array of operators inputs
+// @param operators_output The array of operators outputs
+// @param operators_type The array of operators type
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
     n_cycles: felt,
@@ -106,6 +118,20 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
+// @notice Simulates the run for current inputs for n_cycles cycles
+// @param n_cycles The amount of cycles to simulate
+// @param cyle The current cycle
+// @param board_dimension The dimensions of the board
+// @param instructions_sets The length of each mech's instructions
+// @param instructions The array of all mechs' instructions concatenated together
+// @param mechs The array of mechs
+// @param atoms The arrays of atoms
+// @param atom_faucets The array of faucets
+// @param atom_sinks The array of sinks
+// @param operators_inputs The array of operators inputs
+// @param operators_output The array of operators outputs
+// @param operators_type The array of operators type
+// @param cost The cost for the simulation
 func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     n_cycles: felt,
     cycle: felt,
@@ -198,6 +224,20 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     return ();
 }
 
+// @notice Simulates the run for current inputs for one cycle
+// @param board_dimension The dimensions of the board
+// @param instructions The frame's instruction for each mech
+// @param mechs The array of mechs
+// @param atoms The arrays of atoms
+// @param atom_faucets The array of faucets
+// @param atom_sinks The array of sinks
+// @param operators_inputs The array of operators inputs
+// @param operators_output The array of operators outputs
+// @param operators_type The array of operators type
+// @return mechs_new The array of updated mechs
+// @return atoms_len_new The length of updated atoms
+// @return atoms_new The array of updated atoms
+// @return cost_increase The increase in cost
 func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     board_dimension: felt,
     instructions_len: felt,

@@ -9,6 +9,12 @@ struct InstructionSet {
     instructions: felt*,
 }
 
+// @notice Returns the current frame instructions for each mech
+// @param cycle The current frame number
+// @param instructions_sets The total amount of instructions for each mech
+// @param instructions The array of all mechs instructions
+// @param frame_instructions The current frame's instructions
+// @param offset The offset for each mech's instructions in instructions array
 func get_frame_instruction_set{syscall_ptr: felt*, range_check_ptr}(
     cycle: felt,
     instructions_sets_len: felt,

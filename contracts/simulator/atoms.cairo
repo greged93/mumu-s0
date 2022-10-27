@@ -24,6 +24,10 @@ struct AtomSinkState {
     index: Grid,
 }
 
+// @notice Iterates on atom sinks
+// @param atom_sinks The array of sinks
+// @param atoms The arrays of atoms
+// @return atoms_new The array of updated atoms
 func iterate_sinks{range_check_ptr}(
     atom_sinks_len: felt, atom_sinks: AtomSinkState*, atoms_len: felt, atoms: AtomState*
 ) -> (atoms_len_new: felt, atoms_new: AtomState*) {
@@ -37,6 +41,10 @@ func iterate_sinks{range_check_ptr}(
     );
 }
 
+// @notice Iterates atoms for one sink
+// @param sink The sink
+// @param atoms The arrays of atoms
+// @return atoms_new The array of updated atoms
 func sink_atoms{range_check_ptr}(
     sink: AtomSinkState, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (atoms_len_new: felt, atoms_new: AtomState*) {
@@ -58,6 +66,13 @@ func sink_atoms{range_check_ptr}(
     return sink_atoms(sink, i + 1, atoms_len, atoms);
 }
 
+// @notice Updates a atom's position
+// @param mech_id The id of the mech
+// @param pos The new position
+// @param i The index for atoms
+// @param atoms The arrays of atoms
+// @return is_moved 1 if an atom was moved, 0 otherwise
+// @return atoms_new The array of updated atoms
 func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (is_moved: felt, atoms_new: AtomState*) {
@@ -86,6 +101,12 @@ func update_atoms_moved{syscall_ptr: felt*, range_check_ptr}(
     return update_atoms_moved(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
+// @notice Releases an atom from a mech
+// @param mech_id The id of the mech
+// @param pos The new position
+// @param i The index for atoms
+// @param atoms The arrays of atoms
+// @return atoms_new The array of updated atoms
 func release_atom{range_check_ptr}(
     mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (atoms_new: AtomState*) {
@@ -111,6 +132,12 @@ func release_atom{range_check_ptr}(
     return release_atom(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
+// @notice Picks up an atom for a mech
+// @param mech_id The id of the mech
+// @param pos The new position
+// @param i The index for atoms
+// @param atoms The arrays of atoms
+// @return atoms_new The array of updated atoms
 func pick_up_atom{range_check_ptr}(
     mech_id: felt, pos: Grid, i: felt, atoms_len: felt, atoms: AtomState*
 ) -> (atoms_new: AtomState*) {
@@ -135,6 +162,9 @@ func pick_up_atom{range_check_ptr}(
     return pick_up_atom(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
+// @notice Populates the faucets
+// @param faucets The arrays of faucets
+// @param atoms The arrays of atoms
 func populate_faucets{range_check_ptr}(
     faucets_len: felt, faucets: AtomFaucetState*, atoms_len: felt, atoms: AtomState*
 ) -> felt {
@@ -155,6 +185,10 @@ func populate_faucets{range_check_ptr}(
     );
 }
 
+// @notice Checks the position is free of atoms
+// @param pos The position on the board
+// @param atoms The arrays of atoms
+// @return 1 if the position is free of atoms, 0 otherwise
 func check_grid_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomState*) -> felt {
     if (atoms_len == 0) {
         return 1;
@@ -166,6 +200,10 @@ func check_grid_free{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomSta
     return check_grid_free(pos, atoms_len - 1, atoms + ns_atoms.ATOM_STATE_SIZE);
 }
 
+// @notice Checks the position is filled with an atom
+// @param pos The position on the board
+// @param atoms The arrays of atoms
+// @return 1 if the position is filled with an atom, 0 otherwise
 func check_grid_filled{range_check_ptr}(pos: Grid, atoms_len: felt, atoms: AtomState*) -> felt {
     if (atoms_len == 0) {
         return 0;
