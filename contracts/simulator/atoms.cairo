@@ -3,7 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 
-from contracts.simulator.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks
+from contracts.simulator.constants import Grid, ns_atoms, ns_atom_faucets, ns_atom_sinks, Summary
 
 struct AtomState {
     id: felt,
@@ -27,30 +27,42 @@ struct AtomSinkState {
 // @notice Iterates on atom sinks
 // @param atom_sinks The array of sinks
 // @param atoms The arrays of atoms
+// @param delivered The current amount of target atoms delivered
 // @return atoms_new The array of updated atoms
+// @return delivered_increase The increase of target atoms delivered
 func iterate_sinks{range_check_ptr}(
-    atom_sinks_len: felt, atom_sinks: AtomSinkState*, atoms_len: felt, atoms: AtomState*
-) -> (atoms_len_new: felt, atoms_new: AtomState*) {
+    atom_sinks_len: felt,
+    atom_sinks: AtomSinkState*,
+    atoms_len: felt,
+    atoms: AtomState*,
+    delivered: felt,
+) -> (atoms_len_new: felt, atoms_new: AtomState*, delivered_increase: felt) {
     if (atom_sinks_len == 0) {
-        return (atoms_len_new=atoms_len, atoms_new=atoms);
+        return (atoms_len_new=atoms_len, atoms_new=atoms, delivered_increase=delivered);
     }
     tempvar sink = [atom_sinks];
-    let (atoms_len_new, atoms_new) = sink_atoms(sink, 0, atoms_len, atoms);
+    let (atoms_len_new, atoms_new, is_delivered) = sink_atoms(sink, 0, atoms_len, atoms);
     return iterate_sinks(
-        atom_sinks_len - 1, atom_sinks + ns_atom_sinks.ATOM_SINK_SIZE, atoms_len_new, atoms_new
+        atom_sinks_len - 1,
+        atom_sinks + ns_atom_sinks.ATOM_SINK_SIZE,
+        atoms_len_new,
+        atoms_new,
+        delivered + is_delivered,
     );
 }
 
 // @notice Iterates atoms for one sink
 // @param sink The sink
+// @param i The atom index
 // @param atoms The arrays of atoms
 // @return atoms_new The array of updated atoms
+// @return is_delivered 1 if target atom delivered, 0 otherwise
 func sink_atoms{range_check_ptr}(
     sink: AtomSinkState, i: felt, atoms_len: felt, atoms: AtomState*
-) -> (atoms_len_new: felt, atoms_new: AtomState*) {
+) -> (atoms_len_new: felt, atoms_new: AtomState*, is_delivered: felt) {
     alloc_locals;
     if (atoms_len == i) {
-        return (atoms_len_new=atoms_len, atoms_new=atoms);
+        return (atoms_len_new=atoms_len, atoms_new=atoms, is_delivered=0);
     }
     tempvar atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
     if (sink.index.x == atom.index.x and sink.index.y == atom.index.y and
@@ -61,7 +73,13 @@ func sink_atoms{range_check_ptr}(
         tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
         memcpy(atoms_new, atoms, len_1);
         memcpy(atoms_new + len_1, atoms + len_1 + ns_atoms.ATOM_STATE_SIZE, len_2);
-        return sink_atoms(sink, i, atoms_len - 1, atoms_new);
+        tempvar increase;
+        if (atom.type == ns_atoms.SAFFRON) {
+            assert increase = 1;
+        } else {
+            assert increase = 0;
+        }
+        return (atoms_len_new=atoms_len - 1, atoms_new=atoms_new, is_delivered=increase);
     }
     return sink_atoms(sink, i + 1, atoms_len, atoms);
 }

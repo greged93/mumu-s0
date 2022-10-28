@@ -25,12 +25,10 @@ func new_simulation(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-    cost_accumulated: felt,
+    static_cost: felt,
 ) {
 }
 
 @event
-func frame(
-    mechs_len: felt, mechs: MechState*, atoms_len: felt, atoms: AtomState*, cost_accumulated: felt
-) {
+func end_summary(latency: felt, dynamic_cost: felt) {
 }

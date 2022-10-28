@@ -7,6 +7,18 @@ from starkware.cairo.common.memcpy import memcpy
 
 from contracts.simulator.grid import Grid
 
+struct Summary {
+    frame: felt,
+    cost: felt,
+    delivered_cost: felt,
+    delivered: felt,
+}
+
+namespace ns_summary {
+    const INF = 2 ** 64;
+    const PRECISION = 10 ** 6;
+}
+
 namespace ns_grid {
     func diff{range_check_ptr}(a: Grid, b: Grid) -> (diff: Grid) {
         tempvar abs_x = abs_value(a.x - b.x);
@@ -18,8 +30,6 @@ namespace ns_grid {
 namespace ns_atoms {
     const FREE = 0;
     const POSSESSED = 1;
-    const DELIVERED = 2;
-    const CONSUMED = 3;
 
     const VANILLA = 0;
     const HAZELNUT = 1;
@@ -81,4 +91,5 @@ namespace ns_instructions_cost {
     const SINGLETON_MOVE_CARRY = 20;
     const SINGLETON_GET = 25;
     const SINGLETON_PUT = 25;
+    const SINGLETON_BLOCKED = 3;
 }

@@ -2,9 +2,18 @@
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
+from starkware.cairo.common.math_cmp import is_nn
+from starkware.cairo.common.math import unsigned_div_rem
 from starkware.starknet.common.syscalls import get_caller_address
 
-from contracts.simulator.constants import ns_mechs, ns_atoms, ns_instructions, ns_grid
+from contracts.simulator.constants import (
+    ns_summary,
+    ns_mechs,
+    ns_atoms,
+    ns_instructions,
+    ns_grid,
+    Summary,
+)
 
 from contracts.simulator.mechs import MechState, get_mechs_cost, iterate_mechs, init_pc
 from contracts.simulator.atoms import (
@@ -18,7 +27,7 @@ from contracts.simulator.operators import verify_valid, get_operators_cost, iter
 from contracts.simulator.instructions import get_frame_instruction_set
 from contracts.simulator.grid import Grid
 
-from contracts.simulator.events import new_simulation, frame
+from contracts.simulator.events import new_simulation, end_summary
 
 // @notice Simulates the run for current inputs for n_cycles cycles
 // @param n_cycles The amount of cycles to simulate
@@ -83,7 +92,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs=operators_outputs,
         operators_type_len=operators_type_len,
         operators_type=operators_type,
-        cost_accumulated=base_cost,
+        static_cost=base_cost,
     );
 
     //
@@ -118,7 +127,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        base_cost,
+        Summary(0, base_cost, 0, 0),
     );
 
     return ();
@@ -138,7 +147,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
-// @param cost The cost for the simulation
+// @param summary The summary for the simulation
 func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     n_cycles: felt,
     cycle: felt,
@@ -162,10 +171,23 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-    cost: felt,
+    summary: Summary,
 ) {
     alloc_locals;
     if (cycle == n_cycles) {
+        tempvar delivered = summary.delivered;
+        tempvar is_delivered = is_nn(delivered - 1);
+        if (is_delivered == 1) {
+            let (average_dynamic_cost, _) = unsigned_div_rem(
+                summary.delivered_cost * ns_summary.PRECISION, delivered
+            );
+            let (average_latency, _) = unsigned_div_rem(
+                summary.frame * ns_summary.PRECISION, delivered
+            );
+            end_summary.emit(latency=average_latency, dynamic_cost=average_dynamic_cost);
+        } else {
+            end_summary.emit(latency=ns_summary.INF, dynamic_cost=ns_summary.INF);
+        }
         return ();
     }
     // get current frame instructions
@@ -175,8 +197,9 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     );
 
     // simulate one frame based on current state + instructions
-    let (mechs_new, pc_new, atoms_len_new, atoms_new, cost_increase) = simulate_one_frame(
+    let (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new) = simulate_one_frame(
         board_dimension,
+        cycle,
         instructions_sets_len,
         frame_instructions,
         mechs_len,
@@ -194,16 +217,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-    );
-
-    tempvar new_cost = cost + cost_increase;
-
-    frame.emit(
-        mechs_len=mechs_len,
-        mechs=mechs_new,
-        atoms_len=atoms_len_new,
-        atoms=atoms_new,
-        cost_accumulated=new_cost,
+        summary,
     );
 
     simulate_loop(
@@ -229,13 +243,14 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        new_cost,
+        summary_new,
     );
     return ();
 }
 
 // @notice Simulates the run for current inputs for one cycle
 // @param board_dimension The dimensions of the board
+// @param cycle The simulation cycle
 // @param instructions The frame's instruction for each mech
 // @param mechs The array of mechs
 // @param pc The array of program counters
@@ -245,12 +260,14 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
+// @param summary The summary of the simulation
 // @return mechs_new The array of updated mechs
 // @return atoms_len_new The length of updated atoms
 // @return atoms_new The array of updated atoms
-// @return cost_increase The increase in cost
+// @return summary_new The change in simulation summary
 func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     board_dimension: felt,
+    cycle: felt,
     instructions_len: felt,
     instructions: felt*,
     mechs_len: felt,
@@ -268,12 +285,13 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
+    summary: Summary,
 ) -> (
     mechs_new: MechState*,
     pc_new: felt*,
     atoms_len_new: felt,
     atoms_new: AtomState*,
-    cost_increase: felt,
+    summary_new: Summary,
 ) {
     alloc_locals;
 
@@ -312,9 +330,17 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     //
     // Iterate through atom sinks
     //
-    let (atoms_len_new, atoms_new) = iterate_sinks(
-        atom_sinks_len, atom_sinks, atoms_len_new, atoms_new
+    let (atoms_len_new, atoms_new, delivered_increase) = iterate_sinks(
+        atom_sinks_len, atom_sinks, atoms_len_new, atoms_new, 0
     );
 
-    return (mechs_new, pc_new, atoms_len_new, atoms_new, cost_increase);
+    let is_delivered = is_nn(delivered_increase - 1);
+    tempvar cost_new = summary.cost + cost_increase;
+    if (is_delivered == 1) {
+        tempvar summary_new = Summary(cycle, cost_new, cost_new, summary.delivered + delivered_increase);
+    } else {
+        tempvar summary_new = Summary(summary.frame, cost_new, summary.delivered_cost, summary.delivered);
+    }
+
+    return (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new);
 }
