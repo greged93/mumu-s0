@@ -201,7 +201,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions,
             atoms_len,
             atoms,
-            cost_increase,
+            cost_increase + ns_instructions_cost.SINGLETON_BLOCKED,
         );
     }
     if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE and is_free == 1) {
@@ -232,7 +232,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             instructions,
             atoms_len,
             atoms,
-            cost_increase,
+            cost_increase + ns_instructions_cost.SINGLETON_BLOCKED,
         );
     }
     return iterate_mechs(
