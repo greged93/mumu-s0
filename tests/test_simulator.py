@@ -55,7 +55,7 @@ async def test(starknet):
          "_,Z,D,D,X,A,A,_,_,_,_",
          "_,_,Z,S,D,X,A,W,_,_,_",
          "_,_,_,Z,S,D,D,X,A,A,W",
-         "G,D,X,A",
+         "Z,D,X,A",
          "Z,D,X,A",
          "Z,S,X,W,Z,S,D,X,A,W",
          "Z,S,S,A,X,D,W,W",
@@ -64,7 +64,7 @@ async def test(starknet):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
-    N = 50
+    N = 96
 
     # # Loop the baby
     ret = await contract.simulator(
@@ -90,26 +90,16 @@ async def test(starknet):
     LOGGER.info(
         f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
 
-    solver = events[0].solver
     frames = {
-        'solver': solver,
+        'solver': events[0].solver,
         'instructions length per mech': events[0].instructions_sets,
         'instructions': events[0].instructions,
         'operators input': events[0].operators_inputs,
         'operators ouput': events[0].operators_outputs,
         'operators type': events[0].operators_type,
-        'frames': [
-            {
-                f'frame {i}': i,
-                'mechs': [
-                    {
-                        f'{m.id}': m,
-                    } for m in e.mechs],
-                'atoms': [{
-                    f'{a.id}': a,
-                } for a in e.atoms],
-                'accumulated cost': e.cost_accumulated,
-            } for (i, e) in enumerate(events)]
+        'static cost': events[0].static_cost,
+        'average latency': events[1].latency,
+        'average dynamic_cost': events[1].dynamic_cost,
     }
 
     #
