@@ -10,6 +10,7 @@ from contracts.simulator.grid import Grid
 struct Summary {
     frame: felt,
     cost: felt,
+    static_cost: felt,
     delivered_cost: felt,
     delivered: felt,
 }

@@ -2,7 +2,6 @@
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
-from starkware.cairo.common.math_cmp import is_nn
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.starknet.common.syscalls import get_caller_address
 
@@ -127,7 +126,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         operators_type_len,
         operators_type,
-        Summary(0, base_cost, 0, 0),
+        Summary(0, base_cost, base_cost, 0, 0),
     );
 
     return ();
@@ -176,17 +175,18 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     alloc_locals;
     if (cycle == n_cycles) {
         tempvar delivered = summary.delivered;
-        tempvar is_delivered = is_nn(delivered - 1);
-        if (is_delivered == 1) {
+        if (delivered == 0) {
+            end_summary.emit(delivered=0, latency=ns_summary.INF, dynamic_cost=ns_summary.INF);
+        } else {
             let (average_dynamic_cost, _) = unsigned_div_rem(
-                summary.delivered_cost * ns_summary.PRECISION, delivered
+                (summary.delivered_cost - summary.static_cost) * ns_summary.PRECISION, delivered
             );
             let (average_latency, _) = unsigned_div_rem(
                 summary.frame * ns_summary.PRECISION, delivered
             );
-            end_summary.emit(latency=average_latency, dynamic_cost=average_dynamic_cost);
-        } else {
-            end_summary.emit(latency=ns_summary.INF, dynamic_cost=ns_summary.INF);
+            end_summary.emit(
+                delivered=delivered, latency=average_latency, dynamic_cost=average_dynamic_cost
+            );
         }
         return ();
     }
@@ -334,12 +334,11 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         atom_sinks_len, atom_sinks, atoms_len_new, atoms_new, 0
     );
 
-    let is_delivered = is_nn(delivered_increase - 1);
     tempvar cost_new = summary.cost + cost_increase;
-    if (is_delivered == 1) {
-        tempvar summary_new = Summary(cycle, cost_new, cost_new, summary.delivered + delivered_increase);
+    if (delivered_increase == 0) {
+        tempvar summary_new = Summary(summary.frame, cost_new, summary.static_cost, summary.delivered_cost, summary.delivered);
     } else {
-        tempvar summary_new = Summary(summary.frame, cost_new, summary.delivered_cost, summary.delivered);
+        tempvar summary_new = Summary(cycle + 1, cost_new, summary.static_cost, cost_new, summary.delivered + delivered_increase);
     }
 
     return (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new);

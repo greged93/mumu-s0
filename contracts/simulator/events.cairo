@@ -30,5 +30,5 @@ func new_simulation(
 }
 
 @event
-func end_summary(latency: felt, dynamic_cost: felt) {
+func end_summary(delivered: felt, latency: felt, dynamic_cost: felt) {
 }
