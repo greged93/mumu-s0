@@ -92,12 +92,9 @@ async def test(starknet):
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
-    N = 100
 
     # # Loop the baby
     ret = await contract.simulator(
-        N,
-        7,
         # base
         # [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
         #  (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)),
@@ -112,11 +109,8 @@ async def test(starknet):
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (3, 0)), (3, 0, 0, (4, 2)),
          (4, 0, 0, (3, 0)), (5, 0, 0, (5, 4)), (6, 0, 0, (6, 5)), (7, 0, 0, (6, 4)),
          (8, 0, 0, (2, 5))],
-        [],
         instructions_length,
         instructions,
-        [(0, 0, (0, 0))],
-        [(0, (6, 6))],
         [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0),
          (4, 1), (3, 3), (4, 3), (5, 3), (1, 5)],
         [(3, 0), (3, 1), (4, 2), (5, 4), (6, 4),
@@ -127,7 +121,7 @@ async def test(starknet):
     events = ret.main_call_events
 
     LOGGER.info(
-        f'> Simulation of {N} frames took execution_resources = {ret.call_info.execution_resources}')
+        f'> Simulation of 80 frames took execution_resources = {ret.call_info.execution_resources}')
 
     frames = {
         'solver': events[0].solver,
@@ -145,7 +139,8 @@ async def test(starknet):
     #
     # Export record
     #
-    path = 'artifacts/test_simulator.json' if N > 20 else 'artifacts/test_simulator_short.json'
+    short = False
+    path = 'artifacts/test_simulator.json' if not short else 'artifacts/test_simulator_short.json'
     json_string = json.dumps(frames)
     with open(path, 'w') as f:
         json.dump(json_string, f)
