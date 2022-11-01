@@ -20,6 +20,10 @@ namespace ns_summary {
     const PRECISION = 10 ** 6;
 }
 
+namespace ns_dict {
+    const MULTIPLIER = 10 ** 3;
+}
+
 namespace ns_grid {
     func diff{range_check_ptr}(a: Grid, b: Grid) -> (diff: Grid) {
         tempvar abs_x = abs_value(a.x - b.x);

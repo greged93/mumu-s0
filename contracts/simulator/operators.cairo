@@ -2,8 +2,10 @@
 
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
+from starkware.cairo.common.default_dict import default_dict_new, default_dict_finalize
 
 from contracts.simulator.constants import ns_grid, ns_operators, ns_atoms
+from contracts.simulator.utils import check_uniqueness
 from contracts.simulator.grid import Grid, GRID_SIZE
 from contracts.simulator.atoms import AtomState
 from contracts.simulator.grid import check_position
@@ -29,8 +31,56 @@ struct Operator {
 // @param operators_type The array of types for each operator
 // @param operator_input The array of positions for each input operator
 // @param operator_output The array of positions for each output operator
-func verify_valid{range_check_ptr}(
-    operators_type_len: felt, operators_type: felt*, operator_input: Grid*, operator_output: Grid*
+// @param dimension The dimension of the board
+func verify_valid_operators{range_check_ptr}(
+    operators_type_len: felt,
+    operators_type: felt*,
+    operators_inputs_len: felt,
+    operators_inputs: Grid*,
+    operators_outputs_len: felt,
+    operators_outputs: Grid*,
+    dimension: felt,
+) {
+    alloc_locals;
+    // Rule 1: Check for overlapping operators
+    let (local dict) = default_dict_new(default_value=0);
+    let (dict_) = check_uniqueness(operators_inputs_len, operators_inputs, dict);
+    let (dict_) = check_uniqueness(operators_outputs_len, operators_outputs, dict_);
+    default_dict_finalize(dict_accesses_start=dict_, dict_accesses_end=dict_, default_value=0);
+    // Rule 2: Check the operators are within bounds
+    verify_bounded_operators(operators_inputs_len, operators_inputs, dimension);
+    verify_bounded_operators(operators_outputs_len, operators_outputs, dimension);
+    // Rule 3: Check the operators are continuous
+    verify_continuous_operators(
+        operators_type_len, operators_type, operators_inputs, operators_outputs
+    );
+    return ();
+}
+
+func verify_bounded_operators{range_check_ptr}(
+    operators_len: felt, operators: Grid*, dimension: felt
+) {
+    if (operators_len == 0) {
+        return ();
+    }
+    tempvar operator = [operators];
+    with_attr error_message("operator not within bounds") {
+        assert [range_check_ptr] = dimension - operator.x - 1;
+        assert [range_check_ptr + 1] = dimension - operator.y - 1;
+    }
+    let range_check_ptr = range_check_ptr + 2;
+    return verify_bounded_operators(operators_len - 1, operators + GRID_SIZE, dimension);
+}
+
+// @notice Verifies all operators are continuous following rule 3
+// @param operators_type The array of types for each operator
+// @param operator_input The array of positions for each input operator
+// @param operator_output The array of positions for each output operator
+func verify_continuous_operators{range_check_ptr}(
+    operators_type_len: felt,
+    operators_type: felt*,
+    operators_inputs: Grid*,
+    operators_outputs: Grid*,
 ) {
     alloc_locals;
     if (operators_type_len == 0) {
@@ -42,22 +92,22 @@ func verify_valid{range_check_ptr}(
     let (arr: felt*) = alloc();
     tempvar length_input = input_offset * GRID_SIZE;
     tempvar length_output = output_offset * GRID_SIZE;
-    memcpy(arr, operator_input, length_input);
-    memcpy(arr + length_input, operator_output, length_output);
-    verify_valid_operator(input_offset + output_offset - 1, arr);
+    memcpy(arr, operators_inputs, length_input);
+    memcpy(arr + length_input, operators_outputs, length_output);
+    verify_continuous_operator(input_offset + output_offset - 1, arr);
 
-    return verify_valid(
+    return verify_continuous_operators(
         operators_type_len - 1,
         operators_type + 1,
-        operator_input + length_input,
-        operator_output + length_output,
+        operators_inputs + length_input,
+        operators_outputs + length_output,
     );
 }
 
-// @notice Verifies one operator is valid
+// @notice Verifies one operator is continuous following rule 3
 // @param len The length of the operator array
 // @param operator The array of operators
-func verify_valid_operator{range_check_ptr}(len: felt, operator: felt*) {
+func verify_continuous_operator{range_check_ptr}(len: felt, operator: felt*) {
     if (len == 0) {
         return ();
     }
@@ -66,7 +116,7 @@ func verify_valid_operator{range_check_ptr}(len: felt, operator: felt*) {
     let (diff) = ns_grid.diff(grid_1, grid_2);
     tempvar sum = diff.x + diff.y;
     assert sum = 1;
-    verify_valid_operator(len - 1, operator + GRID_SIZE);
+    verify_continuous_operator(len - 1, operator + GRID_SIZE);
     return ();
 }
 

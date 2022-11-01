@@ -22,6 +22,22 @@ struct MechState {
     index: Grid,
 }
 
+// @notice Verifies all mechs are within bounds
+// @param mechs The array of mechs
+// @param dimension The dimensions of the board
+func verify_bounded_mechs{range_check_ptr}(mechs_len: felt, mechs: MechState*, dimension: felt) {
+    if (mechs_len == 0) {
+        return ();
+    }
+    tempvar mech = [mechs];
+    with_attr error_message("mech not within bounds") {
+        assert [range_check_ptr] = dimension - mech.index.x - 1;
+        assert [range_check_ptr + 1] = dimension - mech.index.y - 1;
+    }
+    let range_check_ptr = range_check_ptr + 2;
+    return verify_bounded_mechs(mechs_len - 1, mechs + ns_mechs.MECH_SIZE, dimension);
+}
+
 // @notice Returns the total costs for mechs
 // @param mechs The array of mechs
 // @param sum The sum of cost for mechs

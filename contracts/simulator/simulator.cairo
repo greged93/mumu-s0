@@ -14,7 +14,13 @@ from contracts.simulator.constants import (
     Summary,
 )
 
-from contracts.simulator.mechs import MechState, get_mechs_cost, iterate_mechs, init_pc
+from contracts.simulator.mechs import (
+    MechState,
+    verify_bounded_mechs,
+    get_mechs_cost,
+    iterate_mechs,
+    init_pc,
+)
 from contracts.simulator.atoms import (
     AtomState,
     AtomFaucetState,
@@ -22,7 +28,11 @@ from contracts.simulator.atoms import (
     populate_faucets,
     iterate_sinks,
 )
-from contracts.simulator.operators import verify_valid, get_operators_cost, iterate_operators
+from contracts.simulator.operators import (
+    verify_valid_operators,
+    get_operators_cost,
+    iterate_operators,
+)
 from contracts.simulator.instructions import get_frame_instruction_set
 from contracts.simulator.grid import Grid
 
@@ -64,8 +74,18 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_type: felt*,
 ) {
     alloc_locals;
-    // verify the operators are valid
-    verify_valid(operators_type_len, operators_type, operators_inputs, operators_outputs);
+    // verify the operators are valid following 3 rules
+    verify_valid_operators(
+        operators_type_len,
+        operators_type,
+        operators_inputs_len,
+        operators_inputs,
+        operators_outputs_len,
+        operators_outputs,
+        board_dimension,
+    );
+    // verify the mechs are bounded
+    verify_bounded_mechs(mechs_len, mechs, board_dimension);
 
     //
     // Calculate base cost based on number of operators and number of mechs used
