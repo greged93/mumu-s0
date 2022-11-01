@@ -180,27 +180,19 @@ func pick_up_atom{range_check_ptr}(
     return pick_up_atom(mech_id, pos, i + 1, atoms_len, atoms);
 }
 
-// @notice Populates the faucets
-// @param faucets The arrays of faucets
+// @notice Populates the faucet
+// @param faucet The atom faucet
 // @param atoms The arrays of atoms
-func populate_faucets{range_check_ptr}(
-    faucets_len: felt, faucets: AtomFaucetState*, atoms_len: felt, atoms: AtomState*
+func populate_faucet{range_check_ptr}(
+    faucet: AtomFaucetState, atoms_len: felt, atoms: AtomState*
 ) -> felt {
     alloc_locals;
-    if (faucets_len == 0) {
-        return atoms_len;
-    }
-    tempvar faucet = [faucets];
     let is_free = check_grid_free(faucet.index, atoms_len, atoms);
     if (is_free == 1) {
         assert [atoms + atoms_len * ns_atoms.ATOM_STATE_SIZE] = AtomState(atoms_len, faucet.type, ns_atoms.FREE, Grid(faucet.index.x, faucet.index.y), 0);
-        return populate_faucets(
-            faucets_len - 1, faucets + ns_atom_faucets.ATOM_FAUCET_SIZE, atoms_len + 1, atoms
-        );
+        return atoms_len + 1;
     }
-    return populate_faucets(
-        faucets_len - 1, faucets + ns_atom_faucets.ATOM_FAUCET_SIZE, atoms_len, atoms
-    );
+    return atoms_len;
 }
 
 // @notice Checks the position is free of atoms

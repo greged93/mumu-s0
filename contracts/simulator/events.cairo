@@ -13,8 +13,6 @@ func new_simulation(
     solver: felt,
     mechs_len: felt,
     mechs: MechState*,
-    atoms_len: felt,
-    atoms: AtomState*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions_len: felt,

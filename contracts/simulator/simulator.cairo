@@ -25,7 +25,7 @@ from contracts.simulator.atoms import (
     AtomState,
     AtomFaucetState,
     AtomSinkState,
-    populate_faucets,
+    populate_faucet,
     iterate_sinks,
 )
 from contracts.simulator.operators import (
@@ -38,34 +38,22 @@ from contracts.simulator.grid import Grid
 
 from contracts.simulator.events import new_simulation, end_summary
 
-// @notice Simulates the run for current inputs for n_cycles cycles
-// @param n_cycles The amount of cycles to simulate
+// @notice Simulates the run for current inputs for 100 cycles
 // @param board_dimension The dimensions of the board
 // @param mechs The array of mechs
-// @param atoms The arrays of atoms
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
-// @param atom_faucets The array of faucets
-// @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
-    n_cycles: felt,
-    board_dimension: felt,
     mechs_len: felt,
     mechs: MechState*,
-    atoms_len: felt,
-    atoms: AtomState*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions_len: felt,
     instructions: felt*,
-    atom_faucets_len: felt,
-    atom_faucets: AtomFaucetState*,
-    atom_sinks_len: felt,
-    atom_sinks: AtomSinkState*,
     operators_inputs_len: felt,
     operators_inputs: Grid*,
     operators_outputs_len: felt,
@@ -74,6 +62,8 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_type: felt*,
 ) {
     alloc_locals;
+    let board_dimension = 7;
+
     // verify the operators are valid following 3 rules
     verify_valid_operators(
         operators_type_len,
@@ -94,13 +84,14 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let base_cost_mechs = get_mechs_cost(mechs_len, mechs, 0);
     local base_cost = base_cost_operators + base_cost_mechs;
 
+    //
+    // Emit new simulation event
+    //
     let (caller) = get_caller_address();
     new_simulation.emit(
         solver=caller,
         mechs_len=mechs_len,
         mechs=mechs,
-        atoms_len=atoms_len,
-        atoms=atoms,
         instructions_sets_len=instructions_sets_len,
         instructions_sets=instructions_sets,
         instructions_len=instructions_len,
@@ -121,10 +112,20 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let (pc_empty) = init_pc(mechs_len, pc, 0);
 
     //
-    // Forward system by n_cycles, emitting frames; a frame carries all objects with their states i.e. frame == state screenshot
+    // Create the sink array
+    //
+    let (atom_sinks: AtomSinkState*) = alloc();
+    assert atom_sinks[0] = AtomSinkState(0, Grid(board_dimension - 1, 0));
+    assert atom_sinks[1] = AtomSinkState(0, Grid(0, board_dimension - 1));
+    assert atom_sinks[2] = AtomSinkState(0, Grid(board_dimension - 1, board_dimension - 1));
+
+    let (atoms: AtomState*) = alloc();
+
+    //
+    // Forward system by 80, emitting summary frame at end of iterations;
     //
     simulate_loop(
-        n_cycles,
+        80,
         0,
         board_dimension,
         instructions_sets_len,
@@ -134,11 +135,10 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         mechs_len,
         mechs,
         pc_empty,
-        atoms_len,
+        0,
         atoms,
-        atom_faucets_len,
-        atom_faucets,
-        atom_sinks_len,
+        AtomFaucetState(0, 0, Grid(0, 0)),
+        3,
         atom_sinks,
         operators_inputs_len,
         operators_inputs,
@@ -161,7 +161,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
 // @param mechs The array of mechs
 // @param pc The array of program counters
 // @param atoms The arrays of atoms
-// @param atom_faucets The array of faucets
+// @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
@@ -180,8 +180,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     pc: felt*,
     atoms_len: felt,
     atoms: AtomState*,
-    atom_faucets_len: felt,
-    atom_faucets: AtomFaucetState*,
+    atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
     operators_inputs_len: felt,
@@ -227,8 +226,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         pc,
         atoms_len,
         atoms,
-        atom_faucets_len,
-        atom_faucets,
+        atom_faucet,
         atom_sinks_len,
         atom_sinks,
         operators_inputs_len,
@@ -253,8 +251,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         pc_new,
         atoms_len_new,
         atoms_new,
-        atom_faucets_len,
-        atom_faucets,
+        atom_faucet,
         atom_sinks_len,
         atom_sinks,
         operators_inputs_len,
@@ -275,7 +272,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 // @param mechs The array of mechs
 // @param pc The array of program counters
 // @param atoms The arrays of atoms
-// @param atom_faucets The array of faucets
+// @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
@@ -295,8 +292,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     pc: felt*,
     atoms_len: felt,
     atoms: AtomState*,
-    atom_faucets_len: felt,
-    atom_faucets: AtomFaucetState*,
+    atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
     operators_inputs_len: felt,
@@ -317,7 +313,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
 
     let (atoms_new: AtomState*) = alloc();
     memcpy(atoms_new, atoms, atoms_len * ns_atoms.ATOM_STATE_SIZE);
-    let atoms_len_new = populate_faucets(atom_faucets_len, atom_faucets, atoms_len, atoms_new);
+    let atoms_len_new = populate_faucet(atom_faucet, atoms_len, atoms_new);
 
     //
     // Iterate through mechs
