@@ -50,9 +50,14 @@ func verify_valid_operators{range_check_ptr}(
     // Rule 2: Check the operators are within bounds
     verify_bounded_operators(operators_inputs_len, operators_inputs, dimension);
     verify_bounded_operators(operators_outputs_len, operators_outputs, dimension);
-    // Rule 3: Check the operators are continuous
+    // Rule 3: Check the operators are continuous and total length match
     verify_continuous_operators(
-        operators_type_len, operators_type, operators_inputs, operators_outputs
+        operators_type_len,
+        operators_type,
+        operators_inputs,
+        operators_outputs,
+        operators_inputs_len + operators_outputs_len,
+        0,
     );
     return ();
 }
@@ -81,9 +86,14 @@ func verify_continuous_operators{range_check_ptr}(
     operators_type: felt*,
     operators_inputs: Grid*,
     operators_outputs: Grid*,
+    expected_sum: felt,
+    sum: felt,
 ) {
     alloc_locals;
     if (operators_type_len == 0) {
+        with_attr error_message("mismatched operators type") {
+            assert expected_sum = sum;
+        }
         return ();
     }
     // TODO not effective to copy every time
@@ -101,6 +111,8 @@ func verify_continuous_operators{range_check_ptr}(
         operators_type + 1,
         operators_inputs + length_input,
         operators_outputs + length_output,
+        expected_sum,
+        sum + input_offset + output_offset,
     );
 }
 
@@ -115,7 +127,9 @@ func verify_continuous_operator{range_check_ptr}(len: felt, operator: felt*) {
     let grid_2 = Grid([operator + GRID_SIZE], [operator + GRID_SIZE + 1]);
     let (diff) = ns_grid.diff(grid_1, grid_2);
     tempvar sum = diff.x + diff.y;
-    assert sum = 1;
+    with_attr error_message("operator continuity error") {
+        assert sum = 1;
+    }
     verify_continuous_operator(len - 1, operator + GRID_SIZE);
     return ();
 }
