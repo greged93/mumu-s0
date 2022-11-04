@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "movymovy"
+version = "0.1.0"
+description = ""
+authors = ["gg gg@topology.com"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+ecdsa = "^0.18.0"
+fastecdsa = "^2.2.3"
+sympy = "^1.11.1"
+cairo-lang = "^0.10.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
