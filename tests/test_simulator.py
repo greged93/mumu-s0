@@ -8,7 +8,6 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-# TODO update based on new implementation for G and H
 def adjust_from_string(instruction):
     i = []
     for s in instruction:
