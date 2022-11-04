@@ -16,7 +16,7 @@ struct Summary {
 }
 
 namespace ns_summary {
-    const INF = 2 ** 64;
+    const INF = 2 ** 63 - 1;
     const PRECISION = 10 ** 6;
 }
 
