@@ -38,7 +38,7 @@ struct AtomSinkState {
 // @param delivered The current amount of target atoms delivered
 // @return atoms_new The dictionary of updated atoms
 // @return delivered_increase The increase of target atoms delivered
-func iterate_sinks{syscall_ptr: felt*, range_check_ptr}(
+func iterate_sinks{range_check_ptr}(
     atom_sinks_len: felt, atom_sinks: AtomSinkState*, atoms: DictAccess*, delivered: felt
 ) -> (atoms_new: DictAccess*, delivered_increase: felt) {
     if (atom_sinks_len == 0) {
@@ -86,19 +86,19 @@ func sink_atoms{range_check_ptr}(sink: AtomSinkState, atoms: DictAccess*) -> (
 // @param pos The new position
 // @param atoms The dictionary of atoms
 // @return atoms_new The dictionary of updated atoms
-func release_atom{syscall_ptr: felt*, range_check_ptr}(
-    mech_id: felt, pos: Grid, atoms: DictAccess*
-) -> (atoms_new: DictAccess*) {
+func release_atom{range_check_ptr}(mech_id: felt, pos: Grid, atoms: DictAccess*) -> (
+    atoms_new: DictAccess*
+) {
     alloc_locals;
-    tempvar key = mech_id * ns_dict.MECH_MULTIPLIER;
+    tempvar key = (mech_id + 1) * ns_dict.MECH_MULTIPLIER;
     let (ptr) = dict_read{dict_ptr=atoms}(key=key);
     tempvar atom = cast(ptr, AtomState*);
-    atom_type.emit(type=atom.type);
     tempvar atom_new: AtomState* = new AtomState(
         atom.type, ns_atoms.FREE, Grid(pos.x, pos.y), 0
         );
     tempvar key_new = pos.x * ns_dict.MULTIPLIER + pos.y;
     dict_write{dict_ptr=atoms}(key=key_new, new_value=cast(atom_new, felt));
+    dict_write{dict_ptr=atoms}(key=key, new_value=0);
     return (atoms_new=atoms);
 }
 
@@ -118,8 +118,9 @@ func pick_up_atom{range_check_ptr}(mech_id: felt, pos: Grid, atoms: DictAccess*)
     tempvar atom_new: AtomState* = new AtomState(
         atom.type, ns_atoms.POSSESSED, Grid(pos.x, pos.y), mech_id
         );
-    tempvar key_new = mech_id * ns_dict.MECH_MULTIPLIER;
+    tempvar key_new = (mech_id + 1) * ns_dict.MECH_MULTIPLIER;
     dict_write{dict_ptr=atoms}(key=key_new, new_value=cast(atom_new, felt));
+    dict_write{dict_ptr=atoms}(key=key, new_value=0);
     return (atoms_new=atoms);
 }
 
