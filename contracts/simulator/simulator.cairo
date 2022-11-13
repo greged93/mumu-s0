@@ -4,6 +4,8 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.math import unsigned_div_rem
 from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.default_dict import default_dict_new, default_dict_finalize
+from starkware.cairo.common.dict_access import DictAccess
 
 from contracts.simulator.constants import (
     ns_summary,
@@ -39,7 +41,6 @@ from contracts.simulator.grid import Grid
 from contracts.simulator.events import new_simulation, end_summary
 
 // @notice Simulates the run for current inputs for 100 cycles
-// @param board_dimension The dimensions of the board
 // @param mechs The array of mechs
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
@@ -119,7 +120,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     assert atom_sinks[1] = AtomSinkState(0, Grid(0, board_dimension - 1));
     assert atom_sinks[2] = AtomSinkState(0, Grid(board_dimension - 1, board_dimension - 1));
 
-    let (atoms: AtomState*) = alloc();
+    let (atoms: DictAccess*) = default_dict_new(default_value=0);
 
     //
     // Forward system by 80, emitting summary frame at end of iterations;
@@ -135,7 +136,6 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         mechs_len,
         mechs,
         pc_empty,
-        0,
         atoms,
         AtomFaucetState(0, 0, Grid(0, 0)),
         3,
@@ -160,7 +160,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
 // @param instructions The array of all mechs' instructions concatenated together
 // @param mechs The array of mechs
 // @param pc The array of program counters
-// @param atoms The arrays of atoms
+// @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
@@ -178,8 +178,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     mechs_len: felt,
     mechs: MechState*,
     pc: felt*,
-    atoms_len: felt,
-    atoms: AtomState*,
+    atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
@@ -193,6 +192,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 ) {
     alloc_locals;
     if (cycle == n_cycles) {
+        default_dict_finalize(dict_accesses_start=atoms, dict_accesses_end=atoms, default_value=0);
         tempvar delivered = summary.delivered;
         if (delivered == 0) {
             end_summary.emit(delivered=0, latency=ns_summary.INF, dynamic_cost=ns_summary.INF);
@@ -216,7 +216,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     );
 
     // simulate one frame based on current state + instructions
-    let (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new) = simulate_one_frame(
+    let (mechs_new, pc_new, atoms_new, summary_new) = simulate_one_frame(
         board_dimension,
         cycle,
         instructions_sets_len,
@@ -224,7 +224,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         mechs_len,
         mechs,
         pc,
-        atoms_len,
         atoms,
         atom_faucet,
         atom_sinks_len,
@@ -249,7 +248,6 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         mechs_len,
         mechs_new,
         pc_new,
-        atoms_len_new,
         atoms_new,
         atom_faucet,
         atom_sinks_len,
@@ -271,7 +269,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 // @param instructions The frame's instruction for each mech
 // @param mechs The array of mechs
 // @param pc The array of program counters
-// @param atoms The arrays of atoms
+// @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
@@ -290,8 +288,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     mechs_len: felt,
     mechs: MechState*,
     pc: felt*,
-    atoms_len: felt,
-    atoms: AtomState*,
+    atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
@@ -302,53 +299,29 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operators_type_len: felt,
     operators_type: felt*,
     summary: Summary,
-) -> (
-    mechs_new: MechState*,
-    pc_new: felt*,
-    atoms_len_new: felt,
-    atoms_new: AtomState*,
-    summary_new: Summary,
-) {
+) -> (mechs_new: MechState*, pc_new: felt*, atoms_new: DictAccess*, summary_new: Summary) {
     alloc_locals;
 
-    let (atoms_new: AtomState*) = alloc();
-    memcpy(atoms_new, atoms, atoms_len * ns_atoms.ATOM_STATE_SIZE);
-    let atoms_len_new = populate_faucet(atom_faucet, atoms_len, atoms_new);
+    let (atoms_new) = populate_faucet(atom_faucet, atoms);
 
     //
     // Iterate through mechs
     //
     let (atoms_new, mechs_new, pc_new, cost_increase) = iterate_mechs(
-        board_dimension,
-        mechs_len,
-        mechs,
-        pc,
-        0,
-        instructions_len,
-        instructions,
-        atoms_len_new,
-        atoms_new,
-        0,
+        board_dimension, mechs_len, mechs, pc, 0, instructions_len, instructions, atoms_new, 0
     );
 
     //
     // Iterate through operators
     //
-    let (atoms_len_new, atoms_new) = iterate_operators(
-        atoms_len_new,
-        atoms_new,
-        operators_inputs,
-        operators_outputs,
-        operators_type_len,
-        operators_type,
+    let (atoms_new) = iterate_operators(
+        atoms_new, operators_inputs, operators_outputs, operators_type_len, operators_type
     );
 
     //
     // Iterate through atom sinks
     //
-    let (atoms_len_new, atoms_new, delivered_increase) = iterate_sinks(
-        atom_sinks_len, atom_sinks, atoms_len_new, atoms_new, 0
-    );
+    let (atoms_new, delivered_increase) = iterate_sinks(atom_sinks_len, atom_sinks, atoms_new, 0);
 
     tempvar cost_new = summary.cost + cost_increase;
     if (delivered_increase == 0) {
@@ -357,5 +330,5 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         tempvar summary_new = Summary(cycle + 1, cost_new, summary.static_cost, cost_new, summary.delivered + delivered_increase);
     }
 
-    return (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new);
+    return (mechs_new, pc_new, atoms_new, summary_new);
 }
