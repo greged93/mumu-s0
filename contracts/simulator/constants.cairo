@@ -22,6 +22,7 @@ namespace ns_summary {
 
 namespace ns_dict {
     const MULTIPLIER = 10 ** 3;
+    const MECH_MULTIPLIER = 10 ** 6;
 }
 
 namespace ns_grid {
