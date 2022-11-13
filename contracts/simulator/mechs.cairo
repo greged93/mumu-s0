@@ -65,7 +65,7 @@ func get_mechs_cost{range_check_ptr}(mechs_len: felt, mechs: MechState*, sum: fe
 // @return atoms_new The array of updated atoms
 // @return mechs_new The array of updated mechs
 // @return cost_increase The increase in cost from mechs operations
-func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
+func iterate_mechs{range_check_ptr}(
     board_dimension: felt,
     mechs_len: felt,
     mechs: MechState*,
