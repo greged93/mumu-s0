@@ -3,12 +3,12 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.dict_access import DictAccess
 
 from contracts.simulator.constants import ns_mechs, ns_instructions, ns_atoms, ns_instructions_cost
 from contracts.simulator.grid import Grid
 from contracts.simulator.atoms import (
     AtomState,
-    update_atoms_moved,
     release_atom,
     pick_up_atom,
     check_grid_free,
@@ -59,7 +59,7 @@ func get_mechs_cost{range_check_ptr}(mechs_len: felt, mechs: MechState*, sum: fe
 // @param mechs The array of mechs
 // @param i The current mech index
 // @param instructions The array of instructions for each mech
-// @param atoms The array of atoms on the board
+// @param atoms The dictionary of atoms on the board
 // @param pc The array of program counters
 // @param cost_increase The sum of increase in cost from mechs operations
 // @return atoms_new The array of updated atoms
@@ -73,10 +73,9 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
     i: felt,
     instructions_len: felt,
     instructions: felt*,
-    atoms_len: felt,
-    atoms: AtomState*,
+    atoms: DictAccess*,
     cost_increase: felt,
-) -> (atoms: AtomState*, mechs: MechState*, pc: felt*, cost_increase: felt) {
+) -> (atoms: DictAccess*, mechs: MechState*, pc: felt*, cost_increase: felt) {
     alloc_locals;
     if (instructions_len == i) {
         return (atoms, mechs, pc, cost_increase);
@@ -99,7 +98,6 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms,
             cost_increase + inc,
         );
@@ -116,7 +114,6 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms,
             cost_increase + inc,
         );
@@ -133,7 +130,6 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms,
             cost_increase + inc,
         );
@@ -150,14 +146,13 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms,
             cost_increase + inc,
         );
     }
-    let is_filled = check_grid_filled(mech.index, atoms_len, atoms);
+    let (atoms_new, is_filled) = check_grid_filled(mech.index, atoms);
     if (instruction == ns_instructions.Z and mech.status == ns_mechs.OPEN and is_filled == 1) {
-        let (atoms_new) = pick_up_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (atoms_new) = pick_up_atom(mech.id, mech.index, atoms_new);
         let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.CLOSE);
         return iterate_mechs(
             board_dimension,
@@ -167,14 +162,13 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_GET,
         );
     }
-    let is_free = check_grid_free(mech.index, atoms_len, atoms);
+    let (atoms_new, is_free) = check_grid_free(mech.index, atoms_new);
     if (instruction == ns_instructions.X and mech.status == ns_mechs.CLOSE and is_free == 1) {
-        let (atoms_new) = release_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (atoms_new) = release_atom(mech.id, mech.index, atoms_new);
         let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.OPEN);
         return iterate_mechs(
             board_dimension,
@@ -184,13 +178,12 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_PUT,
         );
     }
     if (instruction == ns_instructions.G and mech.status == ns_mechs.OPEN and is_filled == 1) {
-        let (atoms_new) = pick_up_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (atoms_new) = pick_up_atom(mech.id, mech.index, atoms_new);
         let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.CLOSE);
         return iterate_mechs(
             board_dimension,
@@ -200,7 +193,6 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_GET,
         );
@@ -215,13 +207,12 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
-            atoms,
+            atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_BLOCKED,
         );
     }
     if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE and is_free == 1) {
-        let (atoms_new) = release_atom(mech.id, mech.index, 0, atoms_len, atoms);
+        let (atoms_new) = release_atom(mech.id, mech.index, atoms_new);
         let (mechs_new) = update_mechs_status(len_1, len_2, mech, mechs, ns_mechs.OPEN);
         return iterate_mechs(
             board_dimension,
@@ -231,7 +222,6 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
             atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_PUT,
         );
@@ -246,8 +236,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
             i + 1,
             instructions_len,
             instructions,
-            atoms_len,
-            atoms,
+            atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_BLOCKED,
         );
     }
@@ -259,8 +248,7 @@ func iterate_mechs{syscall_ptr: felt*, range_check_ptr}(
         i + 1,
         instructions_len,
         instructions,
-        atoms_len,
-        atoms,
+        atoms_new,
         cost_increase,
     );
 }
