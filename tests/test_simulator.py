@@ -78,7 +78,7 @@ async def test(starknet):
     events = ret.main_call_events
 
     LOGGER.info(
-        f'> Simulation of 80 frames took execution_resources = {ret.call_info.execution_resources}')
+        f'> Simulation of 100 frames took execution_resources = {ret.call_info.execution_resources}')
 
     frames = {
         'solver': events[0].solver,
