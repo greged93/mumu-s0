@@ -63,7 +63,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_type: felt*,
 ) {
     alloc_locals;
-    let board_dimension = 7;
+    let board_dimension = 8;
 
     // verify the operators are valid following 3 rules
     verify_valid_operators(
