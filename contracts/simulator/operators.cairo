@@ -3,8 +3,10 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.default_dict import default_dict_new, default_dict_finalize
+from starkware.cairo.common.dict import dict_read, dict_write
+from starkware.cairo.common.dict_access import DictAccess
 
-from contracts.simulator.constants import ns_grid, ns_operators, ns_atoms
+from contracts.simulator.constants import ns_grid, ns_operators, ns_atoms, ns_dict
 from contracts.simulator.utils import check_uniqueness
 from contracts.simulator.grid import Grid, GRID_SIZE
 from contracts.simulator.atoms import AtomState
@@ -135,57 +137,46 @@ func verify_continuous_operator{range_check_ptr}(len: felt, operator: felt*) {
 }
 
 // @notice Iterates and applies operators
-// @param atoms The array of atoms on the board
+// @param atoms The dictionary of atoms on the board
 // @param operator_inputs The array of positions for input operators
 // @param operator_outputs The array of positions for output operators
 // @param operator_type The array of types for operator
 // @return atoms_len_new The length of updated atoms
-// @return atoms_new The array of updated atoms
-func iterate_operators{syscall_ptr: felt*, range_check_ptr}(
-    atoms_len: felt,
-    atoms: AtomState*,
+// @return atoms_new The dictionary of updated atoms
+func iterate_operators{range_check_ptr}(
+    atoms: DictAccess*,
     operator_inputs: Grid*,
     operator_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
-) -> (atoms_new_len: felt, atoms_new: AtomState*) {
+) -> (atoms_new: DictAccess*) {
     alloc_locals;
     if (operators_type_len == 0) {
-        return (atoms_len, atoms);
+        return (atoms_new=atoms);
     }
     tempvar operator_type = [operators_type];
     let (local input_length, output_length) = get_operator_lengths(operator_type);
 
-    let is_valid_operation = check_operators(
-        atoms_len,
-        atoms,
-        input_length,
-        operator_inputs,
-        output_length,
-        operator_outputs,
-        operator_type,
-        0,
+    let (_atoms, is_input_operation_valid) = check_operators_input(
+        atoms, input_length, operator_inputs, 0, operator_type
+    );
+    let (_atoms, is_output_operation_valid) = check_operators_output(
+        _atoms, output_length, operator_outputs
     );
 
-    local atoms_new_len: felt;
-    local atoms_new: AtomState*;
-    if (is_valid_operation == 1) {
-        let (a_new_1) = set_atoms_consumed(atoms_len, atoms, 0, input_length, operator_inputs);
-        set_atoms_output(
-            atoms_len - input_length, a_new_1, 0, output_length, operator_outputs, operator_type
+    local atoms_new: DictAccess*;
+    if (is_input_operation_valid + is_output_operation_valid == 2) {
+        let (a_new_1) = set_atoms_consumed(_atoms, input_length, operator_inputs);
+        let (a_new_2) = set_atoms_output(
+            a_new_1, 0, output_length, operator_outputs, operator_type
         );
-        assert atoms_new_len = atoms_len + output_length - input_length;
-        assert atoms_new = a_new_1;
+        assert atoms_new = a_new_2;
         tempvar range_check_ptr = range_check_ptr;
-        tempvar syscall_ptr = syscall_ptr;
     } else {
-        assert atoms_new_len = atoms_len;
-        assert atoms_new = atoms;
+        assert atoms_new = _atoms;
         tempvar range_check_ptr = range_check_ptr;
-        tempvar syscall_ptr = syscall_ptr;
     }
     return iterate_operators(
-        atoms_new_len,
         atoms_new,
         operator_inputs + input_length * GRID_SIZE,
         operator_outputs + output_length * GRID_SIZE,
@@ -194,113 +185,101 @@ func iterate_operators{syscall_ptr: felt*, range_check_ptr}(
     );
 }
 
-// @notice Checks an operator can be applied i.e. inputs are correctly filled and outputs are empty
-// @param atoms The array of atoms on the board
+// @notice Checks an operator's input are valid i.e. inputs are correctly filled
+// @param atoms The dictionary of atoms on the board
 // @param operator_inputs The array of positions for input operators
-// @param operator_outputs The array of positions for output operators
 // @param operator_type The type for the operator
-// @param filled The amount of filled inputs
 // @return 1 if operator can be applied, 0 otherwise
-func check_operators{syscall_ptr: felt*, range_check_ptr}(
-    atoms_len: felt,
-    atoms: AtomState*,
+func check_operators_input{range_check_ptr}(
+    atoms: DictAccess*,
     operator_inputs_len: felt,
     operator_inputs: Grid*,
-    operator_outputs_len: felt,
-    operator_outputs: Grid*,
+    i: felt,
     operator_type: felt,
-    filled: felt,
-) -> felt {
+) -> (atoms_new: DictAccess*, is_input_filled: felt) {
     alloc_locals;
-    if (atoms_len == 0) {
-        if (operator_inputs_len == filled) {
-            return 1;
-        } else {
-            return 0;
-        }
+    if (operator_inputs_len == 0) {
+        return (atoms_new=atoms, is_input_filled=1);
     }
-    tempvar atom = [atoms];
-    let (local is_at_position_input, index) = check_position(
-        atom.index, 0, operator_inputs_len, operator_inputs
-    );
-    let (local is_at_position_output, _) = check_position(
-        atom.index, 0, operator_outputs_len, operator_outputs
-    );
-    let flavor = get_input_flavor(operator_type, index);
-    if (is_at_position_input == 1 and flavor == atom.type and atom.status == ns_atoms.FREE) {
-        return check_operators(
-            atoms_len - 1,
-            atoms + ns_atoms.ATOM_STATE_SIZE,
-            operator_inputs_len,
-            operator_inputs,
-            operator_outputs_len,
-            operator_outputs,
-            operator_type,
-            filled + 1,
+    tempvar operator = [operator_inputs];
+    tempvar key = operator.x * ns_dict.MULTIPLIER + operator.y;
+    let (local ptr) = dict_read{dict_ptr=atoms}(key=key);
+    let flavor = get_input_flavor(operator_type, i);
+    if (ptr == 0) {
+        return (atoms_new=atoms, is_input_filled=0);
+    }
+    tempvar atom = cast(ptr, AtomState*);
+    if (flavor == atom.type) {
+        return check_operators_input(
+            atoms, operator_inputs_len - 1, operator_inputs + GRID_SIZE, i + 1, operator_type
         );
     }
-    if (is_at_position_output == 1 and atom.status == ns_atoms.FREE) {
-        return 0;
+    return (atoms_new=atoms, is_input_filled=0);
+}
+
+// @notice Checks an operator's output are valid i.e. outputs are empty
+// @param atoms The dictionary of atoms on the board
+// @param operator_outputs The array of positions for output operators
+// @return 1 if operator can be applied, 0 otherwise
+func check_operators_output{range_check_ptr}(
+    atoms: DictAccess*, operator_outputs_len: felt, operator_outputs: Grid*
+) -> (atoms_new: DictAccess*, is_output_free: felt) {
+    if (operator_outputs_len == 0) {
+        return (atoms_new=atoms, is_output_free=1);
     }
-    return check_operators(
-        atoms_len - 1,
-        atoms + ns_atoms.ATOM_STATE_SIZE,
-        operator_inputs_len,
-        operator_inputs,
-        operator_outputs_len,
-        operator_outputs,
-        operator_type,
-        filled,
-    );
+    tempvar operator = [operator_outputs];
+    tempvar key = operator.x * ns_dict.MULTIPLIER + operator.y;
+    let (ptr) = dict_read{dict_ptr=atoms}(key=key);
+    if (ptr == 0) {
+        return check_operators_output(
+            atoms, operator_outputs_len - 1, operator_outputs + GRID_SIZE
+        );
+    }
+    return (atoms_new=atoms, is_output_free=0);
 }
 
 // @notice Sets the consumed atoms by deleting them
-// @param atoms The array of atoms on the board
+// @param atoms The dictionary of atoms on the board
 // @param operator_inputs The array of positions for input operators
-// @param operator_type The type for the operator
-// @return atoms_new The array of updated atoms
-func set_atoms_consumed{syscall_ptr: felt*, range_check_ptr}(
-    atoms_len: felt, atoms: AtomState*, i: felt, operator_input_len: felt, operator_input: Grid*
-) -> (atoms_new: AtomState*) {
+// @return atoms_new The dictionary of updated atoms
+func set_atoms_consumed{range_check_ptr}(
+    atoms: DictAccess*, operator_input_len: felt, operator_inputs: Grid*
+) -> (atoms_new: DictAccess*) {
     alloc_locals;
-    if (i == atoms_len) {
+    if (operator_input_len == 0) {
         return (atoms_new=atoms);
     }
-    let atom = [atoms + i * ns_atoms.ATOM_STATE_SIZE];
-    let (is_at_position, _) = check_position(atom.index, 0, operator_input_len, operator_input);
-    if (is_at_position == 1 and atom.status == ns_atoms.FREE) {
-        // TODO make a generic copy functin which takes i, atoms and AtomState and returns atoms_new
-        let (atoms_new: AtomState*) = alloc();
-        tempvar len_1 = i * ns_atoms.ATOM_STATE_SIZE;
-        tempvar len_2 = (atoms_len - i - 1) * ns_atoms.ATOM_STATE_SIZE;
-        memcpy(atoms_new, atoms, len_1);
-        memcpy(atoms_new + len_1, atoms + len_1 + ns_atoms.ATOM_STATE_SIZE, len_2);
-        return set_atoms_consumed(atoms_len - 1, atoms_new, i, operator_input_len, operator_input);
-    }
-    return set_atoms_consumed(atoms_len, atoms, i + 1, operator_input_len, operator_input);
+    tempvar operator = [operator_inputs];
+    tempvar key = operator.x * ns_dict.MULTIPLIER + operator.y;
+    dict_write{dict_ptr=atoms}(key=key, new_value=0);
+    return set_atoms_consumed(atoms, operator_input_len - 1, operator_inputs + GRID_SIZE);
 }
 
 // @notice Sets the produced atoms
-// @param atoms The array of atoms on the board
-// @param i The current index
+// @param atoms The dictionary of atoms on the board
 // @param operator_outputs The array of positions for output operators
 // @param operator_type The type for the operator
+// @return atoms_new The new dictionary of atoms
 func set_atoms_output{}(
-    atoms_len: felt,
-    atoms: AtomState*,
+    atoms: DictAccess*,
     i: felt,
     operator_outputs_length: felt,
     operator_outputs: Grid*,
     operator_type: felt,
-) {
+) -> (atoms_new: DictAccess*) {
     if (i == operator_outputs_length) {
-        return ();
+        return (atoms_new=atoms);
     }
     let flavor = get_output_flavor(operator_type, i);
-    assert [atoms + atoms_len * ns_atoms.ATOM_STATE_SIZE] = AtomState(atoms_len, flavor, ns_atoms.FREE, [operator_outputs + i * GRID_SIZE], 0);
-    return set_atoms_output(
-        atoms_len + 1, atoms, i + 1, operator_outputs_length, operator_outputs, operator_type
-    );
+    tempvar operator = [operator_outputs + i * GRID_SIZE];
+
+    tempvar key = operator.x * ns_dict.MULTIPLIER + operator.y;
+    tempvar atom_new: AtomState* = new AtomState(
+        flavor, ns_atoms.FREE, operator, 0
+        );
+    dict_write{dict_ptr=atoms}(key=key, new_value=cast(atom_new, felt));
+
+    return set_atoms_output(atoms, i + 1, operator_outputs_length, operator_outputs, operator_type);
 }
 
 // @notice Returns the input and output length for a given operator

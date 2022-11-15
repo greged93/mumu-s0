@@ -15,7 +15,7 @@ struct InstructionSet {
 // @param instructions The array of all mechs instructions
 // @param frame_instructions The current frame's instructions
 // @param offset The offset for each mech's instructions in instructions array
-func get_frame_instruction_set{syscall_ptr: felt*, range_check_ptr}(
+func get_frame_instruction_set{range_check_ptr}(
     cycle: felt,
     pc: felt*,
     instructions_sets_len: felt,
