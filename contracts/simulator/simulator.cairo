@@ -63,7 +63,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_type: felt*,
 ) {
     alloc_locals;
-    let board_dimension = 7;
+    let board_dimension = 8;
 
     // verify the operators are valid following 3 rules
     verify_valid_operators(
@@ -123,10 +123,10 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let (atoms: DictAccess*) = default_dict_new(default_value=0);
 
     //
-    // Forward system by 80, emitting summary frame at end of iterations;
+    // Forward system by 100, emitting summary frame at end of iterations;
     //
     simulate_loop(
-        80,
+        100,
         0,
         board_dimension,
         instructions_sets_len,
