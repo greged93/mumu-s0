@@ -50,64 +50,22 @@ async def test(starknet):
     contract = await starknet.deploy(source='contracts/simulator/simulator.cairo')
     LOGGER.info(f'> Deployed simulator.cairo.')
 
-    # base
-    # i = ["Z,D,X,A,_,_,_,_,_,_,_",
-    #      "_,Z,D,D,X,A,A,_,_,_,_",
-    #      "_,_,Z,S,D,X,A,W,_,_,_",
-    #      "_,_,_,Z,S,D,D,X,A,A,W",
-    #      "Z,D,X,A",
-    #      "Z,D,X,A",
-    #      "Z,S,X,W,Z,S,D,X,A,W",
-    #      "Z,S,S,A,X,D,W,W",
-    #      "Z,A,A,A,A,S,X,W,D,D,D,D",
-    #      "_,_,_,_,_,_,_,_,Z,S,X,W"]
-    # case 1
-    # i = ["Z,D,X,A,Z,D,D,X,A,A",
-    #      "_,Z,S,D,H,A,W,G,S,D,D,H,A,A,W",
-    #      "G,D,H,A,S,G,D,H,A,W",
-    #      "G,S,X,W,G,S,D,X,A,W",
-    #      "G,S,S,S,X,W,W,W",
-    #      "G,A,A,A,A,S,X,W,D,D,D,D",
-    #      "G,S,X,W"]
-    # case 2
-    # i = ["Z,D,X,A,Z,D,D,X,A,A",
-    #      "_,Z,S,D,H,A,W,G,S,D,D,H,A,A,W",
-    #      "G,D,H,A,S,G,D,H,A,W",
-    #      "G,S,X,W,G,S,D,X,A,W",
-    #      "G,S,S,S,X,W,W,W",
-    #      "G,A,A,A,A,S,X,W,D,D,D,D",
-    #      "G,S,X,W",
-    #      "G,S,S,H,W,W"]
-    # case 3
     i = ["Z,D,X,A,Z,D,D,X,A,A",
-         "_,Z,S,D,H,A,W,G,S,D,D,H,A,A,W",
-         "G,D,H,A,S,G,D,H,A,W",
-         "G,S,X,W,G,S,D,X,A,W",
-         "G,S,S,S,X,W,W,W",
-         "G,A,A,A,A,S,X,W,D,D,D,D",
-         "G,S,X,W",
-         "G,S,S,H,W,W",
-         "G,S,D,D,D,D,X,A,A,A,W,Z,S,D,D,D,X,A,A,W,Z,S,D,D,X,A,W,Z,S,D,X,A,A,A,A,W"]
+        "_,Z,S,D,H,A,W,G,S,D,D,H,A,A,W",
+        "G,D,H,A,S,G,D,H,A,W",
+        "G,S,X,W,G,S,D,X,A,W",
+        "G,S,S,S,X,W,W,W",
+        "G,A,A,A,A,S,X,W,D,D,D,D",
+        "G,S,S,D,X,A,W,W",
+        "G,S,S,S,D,H,A,W,W,W",]
 
     instructions_length = [len(x)//2 + 1 for x in i]
     instructions = sum(list(map(adjust_from_string, i)), [])
 
     # # Loop the baby
     ret = await contract.simulator(
-        # base
-        # [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (0, 0)), (3, 0, 0, (0, 0)),
-        #  (4, 0, 0, (3, 0)), (5, 0, 0, (3, 1)), (6, 0, 0, (4, 2)), (7, 0, 0, (4, 1)),
-        #  (8, 0, 0, (5, 4)), (9, 0, 0, (6, 5))],
-        # case 1
-        # [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (3, 0)), (3, 0, 0, (4, 2)),
-        #  (4, 0, 0, (3, 0)), (5, 0, 0, (5, 4)), (6, 0, 0, (6, 5))],
-        # case 2
-        # [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (3, 0)), (3, 0, 0, (4, 2)),
-        #  (4, 0, 0, (3, 0)), (5, 0, 0, (5, 4)), (6, 0, 0, (6, 5)), (7, 0, 0, (6, 4))],
-        # case 3
         [(0, 0, 0, (0, 0)), (1, 0, 0, (0, 0)), (2, 0, 0, (3, 0)), (3, 0, 0, (4, 2)),
-         (4, 0, 0, (3, 0)), (5, 0, 0, (5, 4)), (6, 0, 0, (6, 5)), (7, 0, 0, (6, 4)),
-         (8, 0, 0, (2, 5))],
+         (4, 0, 0, (3, 0)), (5, 0, 0, (5, 4)), (6, 0, 0, (6, 5)), (7, 0, 0, (6, 4))],
         instructions_length,
         instructions,
         [(1, 0), (2, 0), (1, 1), (2, 1), (4, 0),
