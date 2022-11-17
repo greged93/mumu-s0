@@ -16,13 +16,7 @@ from contracts.simulator.constants import (
     Summary,
 )
 
-from contracts.simulator.mechs import (
-    MechState,
-    verify_bounded_mechs,
-    get_mechs_cost,
-    iterate_mechs,
-    init_pc,
-)
+from contracts.simulator.mechs import InputMechState, init_mechs, get_mechs_cost, iterate_mechs
 from contracts.simulator.atoms import (
     AtomState,
     AtomFaucetState,
@@ -50,7 +44,7 @@ from contracts.simulator.events import new_simulation, end_summary
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
     mechs_len: felt,
-    mechs: MechState*,
+    mechs: InputMechState*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions_len: felt,
@@ -75,8 +69,6 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         board_dimension,
     );
-    // verify the mechs are bounded
-    verify_bounded_mechs(mechs_len, mechs, board_dimension);
 
     //
     // Calculate base cost based on number of operators and number of mechs used
@@ -107,12 +99,6 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     );
 
     //
-    // Create the empty pc array
-    //
-    let (pc: felt*) = alloc();
-    let (pc_empty) = init_pc(mechs_len, pc, 0);
-
-    //
     // Create the sink array
     //
     let (atom_sinks: AtomSinkState*) = alloc();
@@ -121,6 +107,8 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     assert atom_sinks[2] = AtomSinkState(0, Grid(board_dimension - 1, board_dimension - 1));
 
     let (atoms: DictAccess*) = default_dict_new(default_value=0);
+    let (mech_dict: DictAccess*) = default_dict_new(default_value=0);
+    let (mech_dict: DictAccess*) = init_mechs(mechs_len, mechs, mech_dict, board_dimension);
 
     //
     // Forward system by 100, emitting summary frame at end of iterations;
@@ -133,9 +121,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         instructions_sets,
         instructions_len,
         instructions,
-        mechs_len,
-        mechs,
-        pc_empty,
+        mech_dict,
         atoms,
         AtomFaucetState(0, 0, Grid(0, 0)),
         3,
@@ -158,8 +144,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
 // @param board_dimension The dimensions of the board
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
-// @param mechs The array of mechs
-// @param pc The array of program counters
+// @param mechs The dictionary of mechs
 // @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
@@ -175,9 +160,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     instructions_sets: felt*,
     instructions_len: felt,
     instructions: felt*,
-    mechs_len: felt,
-    mechs: MechState*,
-    pc: felt*,
+    mechs: DictAccess*,
     atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
@@ -211,19 +194,25 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     }
     // get current frame instructions
     let (local frame_instructions: felt*) = alloc();
-    get_frame_instruction_set(
-        cycle, pc, instructions_sets_len, instructions_sets, instructions, 0, frame_instructions, 0
+    let (mechs) = get_frame_instruction_set(
+        cycle,
+        0,
+        mechs,
+        instructions_sets_len,
+        instructions_sets,
+        instructions,
+        0,
+        frame_instructions,
+        0,
     );
 
     // simulate one frame based on current state + instructions
-    let (mechs_new, pc_new, atoms_new, summary_new) = simulate_one_frame(
+    let (mechs_new, atoms_new, summary_new) = simulate_one_frame(
         board_dimension,
         cycle,
         instructions_sets_len,
         frame_instructions,
-        mechs_len,
         mechs,
-        pc,
         atoms,
         atom_faucet,
         atom_sinks_len,
@@ -245,9 +234,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         instructions_sets,
         instructions_len,
         instructions,
-        mechs_len,
         mechs_new,
-        pc_new,
         atoms_new,
         atom_faucet,
         atom_sinks_len,
@@ -267,8 +254,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 // @param board_dimension The dimensions of the board
 // @param cycle The simulation cycle
 // @param instructions The frame's instruction for each mech
-// @param mechs The array of mechs
-// @param pc The array of program counters
+// @param mechs The dictionary of mechs
 // @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
@@ -285,9 +271,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     cycle: felt,
     instructions_len: felt,
     instructions: felt*,
-    mechs_len: felt,
-    mechs: MechState*,
-    pc: felt*,
+    mechs: DictAccess*,
     atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
@@ -299,7 +283,7 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operators_type_len: felt,
     operators_type: felt*,
     summary: Summary,
-) -> (mechs_new: MechState*, pc_new: felt*, atoms_new: DictAccess*, summary_new: Summary) {
+) -> (mechs_new: DictAccess*, atoms_new: DictAccess*, summary_new: Summary) {
     alloc_locals;
 
     let (atoms_new) = populate_faucet(atom_faucet, atoms);
@@ -307,8 +291,8 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     //
     // Iterate through mechs
     //
-    let (atoms_new, mechs_new, pc_new, cost_increase) = iterate_mechs(
-        board_dimension, mechs_len, mechs, pc, 0, instructions_len, instructions, atoms_new, 0
+    let (atoms_new, mechs_new, cost_increase) = iterate_mechs(
+        board_dimension, mechs, 0, instructions_len, instructions, atoms_new, 0
     );
 
     //
@@ -330,5 +314,5 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         tempvar summary_new = Summary(cycle + 1, cost_new, summary.static_cost, cost_new, summary.delivered + delivered_increase);
     }
 
-    return (mechs_new, pc_new, atoms_new, summary_new);
+    return (mechs_new, atoms_new, summary_new);
 }
