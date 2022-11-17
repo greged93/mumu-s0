@@ -1,6 +1,6 @@
 %lang starknet
 
-from contracts.simulator.mechs import MechState
+from contracts.simulator.mechs import InputMechState
 from contracts.simulator.atoms import AtomState
 from contracts.simulator.grid import Grid
 
@@ -12,7 +12,7 @@ from contracts.simulator.grid import Grid
 func new_simulation(
     solver: felt,
     mechs_len: felt,
-    mechs: MechState*,
+    mechs: InputMechState*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions_len: felt,
