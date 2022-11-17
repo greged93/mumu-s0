@@ -28,13 +28,17 @@ struct Operator {
     type: OperatorType,
 }
 
-// @notice Verifies all operators are valid following 3 rules: 1. no overlap between operators
+// @notice Verifies all operators are valid following 3 rules: 1. no overlap between operators (including sinks and faucets)
 // @notice 2. all operators are within bounds 3. for a given operator, inputs and outputs should be continuous
+// @param piping The piping (sinks, faucets) for atoms
+// @param atom_sinks The array of sinks for atoms
 // @param operators_type The array of types for each operator
 // @param operator_input The array of positions for each input operator
 // @param operator_output The array of positions for each output operator
 // @param dimension The dimension of the board
 func verify_valid_operators{range_check_ptr}(
+    piping_len: felt,
+    piping: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
     operators_inputs_len: felt,
@@ -46,8 +50,13 @@ func verify_valid_operators{range_check_ptr}(
     alloc_locals;
     // Rule 1: Check for overlapping operators
     let (local dict) = default_dict_new(default_value=0);
-    let (dict_) = check_uniqueness(operators_inputs_len, operators_inputs, dict);
-    let (dict_) = check_uniqueness(operators_outputs_len, operators_outputs, dict_);
+    with_attr error_message("overlapping operators") {
+        let (dict_) = check_uniqueness(operators_inputs_len, operators_inputs, dict);
+        let (dict_) = check_uniqueness(operators_outputs_len, operators_outputs, dict_);
+    }
+    with_attr error_message("overlapping piping") {
+        let (dict_) = check_uniqueness(piping_len, piping, dict_);
+    }
     default_dict_finalize(dict_accesses_start=dict_, dict_accesses_end=dict_, default_value=0);
     // Rule 2: Check the operators are within bounds
     verify_bounded_operators(operators_inputs_len, operators_inputs, dimension);
@@ -64,6 +73,9 @@ func verify_valid_operators{range_check_ptr}(
     return ();
 }
 
+// @notice Verifies all operators are within the board's bounds
+// @param operators The positions of operators on the grid
+// @param dimension The dimensions of the board
 func verify_bounded_operators{range_check_ptr}(
     operators_len: felt, operators: Grid*, dimension: felt
 ) {
@@ -98,7 +110,6 @@ func verify_continuous_operators{range_check_ptr}(
         }
         return ();
     }
-    // TODO not effective to copy every time
     tempvar operator_type = [operators_type];
     let (input_offset, output_offset) = get_operator_lengths(operator_type);
     let (arr: felt*) = alloc();
