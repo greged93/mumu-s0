@@ -21,6 +21,7 @@ struct InputMechState {
     type: felt,
     status: felt,
     index: Grid,
+    description: felt,
 }
 
 struct MechState {

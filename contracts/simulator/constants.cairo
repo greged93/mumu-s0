@@ -61,7 +61,7 @@ namespace ns_atom_sinks {
 }
 
 namespace ns_mechs {
-    const INPUT_MECH_SIZE = 5;
+    const INPUT_MECH_SIZE = 6;
     const MECH_SIZE = 6;
 
     const OPEN = 0;
