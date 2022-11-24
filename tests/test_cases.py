@@ -3,7 +3,7 @@ import pytest
 from starkware.starknet.testing.starknet import Starknet
 import asyncio
 import logging
-from utils import import_json
+from utils import import_json, DESCRIPTIONS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ async def test(starknet):
 
     ### Run the test cases ###
     for i in range(2):
-        LOGGER.info(f"> Importing file test{i}.json")
+        LOGGER.info(f"> Importing file test{i}_description.json")
         (
             mechs,
             instructions_length,
@@ -41,7 +41,7 @@ async def test(starknet):
             inputs,
             outputs,
             types,
-        ) = import_json(f"./tests/test-cases/test{i}.json")
+        ) = import_json(f"./tests/test-cases/test{i}_description.json")
 
         #### Loop the baby ###
         ret = await contract.simulator(
@@ -56,6 +56,7 @@ async def test(starknet):
 
         frames = {
             "solver": events[0].solver,
+            "mechs": events[0].mechs,
             "instructions length per mech": events[0].instructions_sets,
             "instructions": events[0].instructions,
             "operators input": events[0].operators_inputs,
@@ -66,6 +67,14 @@ async def test(starknet):
             "average latency": events[-1].latency,
             "average dynamic cost": events[-1].dynamic_cost,
         }
+
+        for mech in frames["mechs"]:
+            x: int = mech.description
+            bytes_length = (x.bit_length() + 7) // 8
+            dec = int.to_bytes(x, bytes_length, "big").decode("utf8")
+            assert (
+                dec in DESCRIPTIONS
+            ), f"description error, expected one of {DESCRIPTIONS}, got {dec}"
 
         assert (
             frames["static cost"] == static_costs[i]
