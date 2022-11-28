@@ -102,7 +102,8 @@ namespace ns_instructions {
     const X = 5;  // put
     const G = 6;  // block-get
     const H = 7;  // block-put
-    const SKIP = 8;  // skip
+    const C = 8;  // careless put
+    const SKIP = 50;  // skip
 }
 
 // TODO careless drop cost
@@ -111,5 +112,6 @@ namespace ns_instructions_cost {
     const SINGLETON_MOVE_CARRY = 20;
     const SINGLETON_GET = 25;
     const SINGLETON_PUT = 25;
+    const SINGLETON_CARELESS_PUT = 10;
     const SINGLETON_BLOCKED = 3;
 }

@@ -105,7 +105,6 @@ func release_atom{range_check_ptr}(mech_id: felt, pos: Grid, atoms: DictAccess*)
 // @notice Picks up an atom for a mech
 // @param mech_id The id of the mech
 // @param pos The new position
-// @param i The index for atoms
 // @param atoms The dictionary of atoms
 // @return atoms_new The dictionary of updated atoms
 func pick_up_atom{range_check_ptr}(mech_id: felt, pos: Grid, atoms: DictAccess*) -> (
@@ -120,6 +119,17 @@ func pick_up_atom{range_check_ptr}(mech_id: felt, pos: Grid, atoms: DictAccess*)
         );
     tempvar key_new = (mech_id + 1) * ns_dict.MECH_MULTIPLIER;
     dict_write{dict_ptr=atoms}(key=key_new, new_value=cast(atom_new, felt));
+    dict_write{dict_ptr=atoms}(key=key, new_value=0);
+    return (atoms_new=atoms);
+}
+
+// @notice Picks up an atom for a mech
+// @param mech_id The id of the mech
+// @param atoms The dictionary of atoms
+// @return atoms_new The dictionary of updated atoms
+func destroy_atom{range_check_ptr}(mech_id: felt, atoms: DictAccess*) -> (atoms_new: DictAccess*) {
+    alloc_locals;
+    tempvar key = (mech_id + 1) * ns_dict.MECH_MULTIPLIER;
     dict_write{dict_ptr=atoms}(key=key, new_value=0);
     return (atoms_new=atoms);
 }
