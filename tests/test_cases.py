@@ -1,4 +1,3 @@
-from re import M
 import pytest
 from starkware.starknet.testing.starknet import Starknet
 import asyncio
@@ -26,13 +25,13 @@ async def test(starknet):
     contract = await starknet.deploy(source="contracts/simulator/simulator.cairo")
     LOGGER.info(f"> Deployed simulator.cairo.")
 
-    static_costs = [4250, 6000]
-    delivereds = [4, 2]
-    latencies = [36.5, 38]
-    dynamic_costs = [4089.25, 3639]
+    static_costs = [4250, 6000, 6000]
+    delivereds = [4, 2, 4]
+    latencies = [36.5, 38, 29.5]
+    dynamic_costs = [4089.25, 3639, 2843.25]
 
     ### Run the test cases ###
-    for i in range(2):
+    for i in range(3):
         LOGGER.info(f"> Importing file test{i}_description.json")
         (
             mechs,

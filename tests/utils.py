@@ -30,7 +30,8 @@ INSTRUCTIONS = {
     "X": 5,
     "G": 6,
     "H": 7,
-    ".": 8,
+    "C": 8,
+    ".": 50,
 }
 DESCRIPTIONS = [
     "this is a recycler",
