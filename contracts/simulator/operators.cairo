@@ -310,6 +310,18 @@ func get_operator_lengths{}(operator: felt) -> (input: felt, output: felt) {
     if (operator == ns_operators.SMASH) {
         return (input=1, output=5);
     }
+    if (operator == ns_operators.EVOLVE) {
+        return (input=3, output=1);
+    }
+    if (operator == ns_operators.SLOW) {
+        return (input=1, output=2);
+    }
+    if (operator == ns_operators.WILT) {
+        return (input=2, output=3);
+    }
+    if (operator == ns_operators.BAKE) {
+        return (input=2, output=2);
+    }
     with_attr error_message("unknow operator") {
         assert 0 = 1;
     }
@@ -340,6 +352,18 @@ func get_operators_cost{range_check_ptr}(
     if (operator_type == ns_operators.SMASH) {
         assert cost = ns_operators.STATIC_COST_SMASH;
     }
+    if (operator_type == ns_operators.EVOLVE) {
+        assert cost = ns_operators.STATIC_COST_EVOLVE;
+    }
+    if (operator_type == ns_operators.SLOW) {
+        assert cost = ns_operators.STATIC_COST_SLOW;
+    }
+    if (operator_type == ns_operators.WILT) {
+        assert cost = ns_operators.STATIC_COST_WILT;
+    }
+    if (operator_type == ns_operators.BAKE) {
+        assert cost = ns_operators.STATIC_COST_BAKE;
+    }
     return get_operators_cost(operators_type_len - 1, operators_type + 1, sum + cost);
 }
 
@@ -363,6 +387,30 @@ func get_input_flavor{}(operator_type: felt, index: felt) -> felt {
     }
     if (operator_type == ns_operators.SMASH) {
         return ns_atoms.TRUFFLE;
+    }
+    if (operator_type == ns_operators.EVOLVE) {
+        if (index == 0) {
+            return ns_atoms.VANILLA;
+        } else {
+            return ns_atoms.CHOCOLATE;
+        }
+    }
+    if (operator_type == ns_operators.SLOW) {
+        return ns_atoms.TURTLE;
+    }
+    if (operator_type == ns_operators.WILT) {
+        if (index == 0) {
+            return ns_atoms.CHOCOLATE;
+        } else {
+            return ns_atoms.SANDGLASS;
+        }
+    }
+    if (operator_type == ns_operators.BAKE) {
+        if (index == 0) {
+            return ns_atoms.VANILLA;
+        } else {
+            return ns_atoms.WILTED_ROSE;
+        }
     }
     with_attr error_message("incorrect operator") {
         assert 0 = 1;
@@ -394,6 +442,22 @@ func get_output_flavor{}(operator_type: felt, index: felt) -> felt {
         } else {
             return ns_atoms.VANILLA;
         }
+    }
+    if (operator_type == ns_operators.EVOLVE) {
+        return ns_atoms.TURTLE;
+    }
+    if (operator_type == ns_operators.SLOW) {
+        return ns_atoms.SANDGLASS;
+    }
+    if (operator_type == ns_operators.WILT) {
+        if (index == 0) {
+            return ns_atoms.WILTED_ROSE;
+        } else {
+            return ns_atoms.HAZELNUT;
+        }
+    }
+    if (operator_type == ns_operators.BAKE) {
+        return ns_atoms.SAFFRON;
     }
     with_attr error_message("incorrect operator") {
         assert 0 = 1;

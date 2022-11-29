@@ -1,9 +1,8 @@
-from re import M
 import pytest
 from starkware.starknet.testing.starknet import Starknet
 import asyncio
 import logging
-from utils import import_json
+from utils import import_json, DESCRIPTIONS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,174 +25,65 @@ async def test(starknet):
     contract = await starknet.deploy(source="contracts/simulator/simulator.cairo")
     LOGGER.info(f"> Deployed simulator.cairo.")
 
-    # ### Test case 1 ###
+    static_costs = [4250, 6000, 6000]
+    delivereds = [4, 2, 4]
+    latencies = [36.5, 38, 29.5]
+    dynamic_costs = [4089.25, 3639, 2843.25]
 
-    (mechs, instructions_length, instructions, inputs, outputs, types) = import_json(
-        "./tests/test-cases/test1.json"
-    )
+    ### Run the test cases ###
+    for i in range(3):
+        LOGGER.info(f"> Importing file test{i}_description.json")
+        (
+            mechs,
+            instructions_length,
+            instructions,
+            inputs,
+            outputs,
+            types,
+        ) = import_json(f"./tests/test-cases/test{i}_description.json")
 
-    # # Loop the baby
-    ret = await contract.simulator(
-        mechs, instructions_length, instructions, inputs, outputs, types
-    ).call()
+        #### Loop the baby ###
+        ret = await contract.simulator(
+            mechs, instructions_length, instructions, inputs, outputs, types
+        ).call()
 
-    events = ret.main_call_events
+        events = ret.main_call_events
 
-    LOGGER.info(
-        f"> Simulation of 100 frames took execution_resources = {ret.call_info.execution_resources}"
-    )
+        LOGGER.info(
+            f"> Simulation of 150 frames took execution_resources = {ret.call_info.execution_resources}"
+        )
 
-    frames = {
-        "solver": events[0].solver,
-        "instructions length per mech": events[0].instructions_sets,
-        "instructions": events[0].instructions,
-        "operators input": events[0].operators_inputs,
-        "operators ouput": events[0].operators_outputs,
-        "operators type": events[0].operators_type,
-        "static cost": events[0].static_cost,
-        "delivered": events[-1].delivered,
-        "average latency": events[-1].latency,
-        "average dynamic cost": events[-1].dynamic_cost,
-    }
+        frames = {
+            "solver": events[0].solver,
+            "mechs": events[0].mechs,
+            "instructions length per mech": events[0].instructions_sets,
+            "instructions": events[0].instructions,
+            "operators input": events[0].operators_inputs,
+            "operators ouput": events[0].operators_outputs,
+            "operators type": events[0].operators_type,
+            "static cost": events[0].static_cost,
+            "delivered": events[-1].delivered,
+            "average latency": events[-1].latency,
+            "average dynamic cost": events[-1].dynamic_cost,
+        }
 
-    assert (
-        frames["static cost"] == 3950
-    ), f'static cost error, expected 3950, got {frames["static cost"]}'
-    assert (
-        frames["delivered"] == 1
-    ), f'delivered error, expected 1, got {frames["delivered"]}'
-    assert (
-        frames["average latency"] / 1000000 == 46
-    ), f'average latency error, expected 46, got {frames["average latency"]/1000000}'
-    assert (
-        frames["average dynamic cost"] / 1000000 == 3574
-    ), f'average dynamic cost error, expected 3574, got {frames["average dynamic cost"]/1000000}'
+        for mech in frames["mechs"]:
+            x: int = mech.description
+            bytes_length = (x.bit_length() + 7) // 8
+            dec = int.to_bytes(x, bytes_length, "big").decode("utf8")
+            assert (
+                dec in DESCRIPTIONS
+            ), f"description error, expected one of {DESCRIPTIONS}, got {dec}"
 
-    ### Test case 2 ###
-
-    (mechs, instructions_length, instructions, inputs, outputs, types) = import_json(
-        "./tests/test-cases/test2.json"
-    )
-
-    # # Loop the baby
-    ret = await contract.simulator(
-        mechs, instructions_length, instructions, inputs, outputs, types
-    ).call()
-
-    events = ret.main_call_events
-
-    LOGGER.info(
-        f"> Simulation of 100 frames took execution_resources = {ret.call_info.execution_resources}"
-    )
-
-    frames = {
-        "solver": events[0].solver,
-        "instructions length per mech": events[0].instructions_sets,
-        "instructions": events[0].instructions,
-        "operators input": events[0].operators_inputs,
-        "operators ouput": events[0].operators_outputs,
-        "operators type": events[0].operators_type,
-        "static cost": events[0].static_cost,
-        "delivered": events[-1].delivered,
-        "average latency": events[-1].latency,
-        "average dynamic cost": events[-1].dynamic_cost,
-    }
-
-    assert (
-        frames["static cost"] == 3800
-    ), f'static cost error, expected 3800, got {frames["static cost"]}'
-    assert (
-        frames["delivered"] == 2
-    ), f'delivered error, expected 2, got {frames["delivered"]}'
-    assert (
-        frames["average latency"] / 1000000 == 32
-    ), f'average latency error, expected 32, got {frames["average latency"]/1000000}'
-    assert (
-        frames["average dynamic cost"] / 1000000 == 3224
-    ), f'average dynamic cost error, expected 3224, got {frames["average dynamic cost"]/1000000}'
-
-    ### Test case 3 ###
-
-    (mechs, instructions_length, instructions, inputs, outputs, types) = import_json(
-        "./tests/test-cases/test3.json"
-    )
-
-    # # Loop the baby
-    ret = await contract.simulator(
-        mechs, instructions_length, instructions, inputs, outputs, types
-    ).call()
-
-    events = ret.main_call_events
-
-    LOGGER.info(
-        f"> Simulation of 100 frames took execution_resources = {ret.call_info.execution_resources}"
-    )
-
-    frames = {
-        "solver": events[0].solver,
-        "instructions length per mech": events[0].instructions_sets,
-        "instructions": events[0].instructions,
-        "operators input": events[0].operators_inputs,
-        "operators ouput": events[0].operators_outputs,
-        "operators type": events[0].operators_type,
-        "static cost": events[0].static_cost,
-        "delivered": events[-1].delivered,
-        "average latency": events[-1].latency,
-        "average dynamic cost": events[-1].dynamic_cost,
-    }
-
-    assert (
-        frames["static cost"] == 7000
-    ), f'static cost error, expected 7000, got {frames["static cost"]}'
-    assert (
-        frames["delivered"] == 5
-    ), f'delivered error, expected 5, got {frames["delivered"]}'
-    assert (
-        frames["average latency"] / 1000000 == 20
-    ), f'average latency error, expected 20, got {frames["average latency"]/1000000}'
-    assert (
-        frames["average dynamic cost"] / 1000000 == 3780.8
-    ), f'average dynamic cost error, expected 3780.8, got {frames["average dynamic cost"]/1000000}'
-
-    ### Test case 4 ###
-
-    (mechs, instructions_length, instructions, inputs, outputs, types) = import_json(
-        "./tests/test-cases/test4.json"
-    )
-
-    # # Loop the baby
-    ret = await contract.simulator(
-        mechs, instructions_length, instructions, inputs, outputs, types
-    ).call()
-
-    events = ret.main_call_events
-
-    LOGGER.info(
-        f"> Simulation of 100 frames took execution_resources = {ret.call_info.execution_resources}"
-    )
-
-    frames = {
-        "solver": events[0].solver,
-        "instructions length per mech": events[0].instructions_sets,
-        "instructions": events[0].instructions,
-        "operators input": events[0].operators_inputs,
-        "operators ouput": events[0].operators_outputs,
-        "operators type": events[0].operators_type,
-        "static cost": events[0].static_cost,
-        "delivered": events[-1].delivered,
-        "average latency": events[-1].latency,
-        "average dynamic cost": events[-1].dynamic_cost,
-    }
-
-    assert (
-        frames["static cost"] == 5500
-    ), f'static cost error, expected 5500, got {frames["static cost"]}'
-    assert (
-        frames["delivered"] == 7
-    ), f'delivered error, expected 7, got {frames["delivered"]}'
-    assert (
-        frames["average latency"] / 1000000 == 13.142857
-    ), f'average latency error, expected 13.142857, got {frames["average latency"]/1000000}'
-    assert (
-        frames["average dynamic cost"] / 1000000 == 2860.857142
-    ), f'average dynamic cost error, expected 2860.857142, got {frames["average dynamic cost"]/1000000}'
+        assert (
+            frames["static cost"] == static_costs[i]
+        ), f'static cost error, expected {static_costs[i]}, got {frames["static cost"]}'
+        assert (
+            frames["delivered"] == delivereds[i]
+        ), f'delivered error, expected {delivereds[i]}, got {frames["delivered"]}'
+        assert (
+            frames["average latency"] / 1000000 == latencies[i]
+        ), f'average latency error, expected {latencies[i]}, got {frames["average latency"]/1000000}'
+        assert (
+            frames["average dynamic cost"] / 1000000 == dynamic_costs[i]
+        ), f'average dynamic cost error, expected {dynamic_costs[i]}, got {frames["average dynamic cost"]/1000000}'

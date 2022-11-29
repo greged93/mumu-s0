@@ -3,6 +3,7 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_le
 from starkware.starknet.common.syscalls import get_caller_address
 from starkware.cairo.common.default_dict import default_dict_new, default_dict_finalize
 from starkware.cairo.common.dict_access import DictAccess
@@ -57,7 +58,11 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_type: felt*,
 ) {
     alloc_locals;
-    let board_dimension = 8;
+    let board_dimension = 10;
+    let is_valid_mech_len = is_le(mechs_len, 25);
+    with_attr error_message("mech length limited to 25") {
+        assert is_valid_mech_len = 1;
+    }
 
     //
     // Create the sink array, the piping array and the faucet
@@ -124,10 +129,10 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let (mech_dict: DictAccess*) = init_mechs(mechs_len, mechs, mech_dict, board_dimension);
 
     //
-    // Forward current world by 100, emiting summary at last frame
+    // Forward current world by 150, emiting summary at last frame
     //
     simulate_loop(
-        100,
+        150,
         0,
         board_dimension,
         instructions_sets_len,

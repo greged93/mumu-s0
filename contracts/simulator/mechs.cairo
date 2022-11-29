@@ -12,6 +12,7 @@ from contracts.simulator.atoms import (
     AtomState,
     release_atom,
     pick_up_atom,
+    destroy_atom,
     check_grid_free,
     check_grid_filled,
 )
@@ -21,6 +22,7 @@ struct InputMechState {
     type: felt,
     status: felt,
     index: Grid,
+    description: felt,
 }
 
 struct MechState {
@@ -202,7 +204,7 @@ func iterate_mechs{range_check_ptr}(
             cost_increase + ns_instructions_cost.SINGLETON_GET,
         );
     }
-    if (instruction == ns_instructions.G and mech.status == ns_mechs.OPEN and is_filled == 0) {
+    if (instruction == ns_instructions.G and mech.status == ns_mechs.OPEN) {
         let (mechs_new) = update_mechs_pc(mech, mechs);
         return iterate_mechs(
             board_dimension,
@@ -227,7 +229,7 @@ func iterate_mechs{range_check_ptr}(
             cost_increase + ns_instructions_cost.SINGLETON_PUT,
         );
     }
-    if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE and is_free == 0) {
+    if (instruction == ns_instructions.H and mech.status == ns_mechs.CLOSE) {
         let (mechs_new) = update_mechs_pc(mech, mechs);
         return iterate_mechs(
             board_dimension,
@@ -237,6 +239,23 @@ func iterate_mechs{range_check_ptr}(
             instructions,
             atoms_new,
             cost_increase + ns_instructions_cost.SINGLETON_BLOCKED,
+        );
+    }
+    if (instruction == ns_instructions.C and mech.status == ns_mechs.CLOSE) {
+        let (mechs_new) = update_mechs_status(mech, mechs, ns_mechs.OPEN);
+        if (is_free == 1) {
+            let (atoms_new) = release_atom(mech.id, mech.index, atoms_new);
+        } else {
+            let (atoms_new) = destroy_atom(mech.id, atoms_new);
+        }
+        return iterate_mechs(
+            board_dimension,
+            mechs_new,
+            i + 1,
+            instructions_len,
+            instructions,
+            atoms_new,
+            cost_increase + ns_instructions_cost.SINGLETON_CARELESS_PUT,
         );
     }
     return iterate_mechs(
