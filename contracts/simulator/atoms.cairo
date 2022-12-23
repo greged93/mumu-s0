@@ -135,12 +135,16 @@ func destroy_atom{range_check_ptr}(mech_id: felt, atoms: DictAccess*) -> (atoms_
 }
 
 // @notice Populates the faucet
-// @param faucet The atom faucet
+// @param faucets The array of atom faucets
 // @param atoms The dictionary of atoms
-func populate_faucet{range_check_ptr}(faucet: AtomFaucetState, atoms: DictAccess*) -> (
-    atoms: DictAccess*
-) {
+func populate_faucets{range_check_ptr}(
+    faucets_len: felt, faucets: AtomFaucetState*, atoms: DictAccess*
+) -> (atoms: DictAccess*) {
     alloc_locals;
+    if (faucets_len == 0) {
+        return (atoms=atoms);
+    }
+    tempvar faucet = [faucets];
     tempvar key = faucet.index.x * ns_dict.MULTIPLIER + faucet.index.y;
     let (is_full) = dict_read{dict_ptr=atoms}(key);
     if (is_full == 0) {
@@ -149,9 +153,23 @@ func populate_faucet{range_check_ptr}(faucet: AtomFaucetState, atoms: DictAccess
             );
         tempvar value = cast(atom, felt);
         dict_write{dict_ptr=atoms}(key=key, new_value=value);
-        return (atoms=atoms);
+        return populate_faucets(faucets_len - 1, faucets + ns_atom_faucets.ATOM_FAUCET_SIZE, atoms);
     }
-    return (atoms=atoms);
+    return populate_faucets(faucets_len - 1, faucets + ns_atom_faucets.ATOM_FAUCET_SIZE, atoms);
+}
+
+// @notice Returns the filled in piping to check for overlap
+// @param piping The array of piping
+// @param pipes The array of pipes to add to the piping array]
+// @return The filled in piping array
+func fill_piping{range_check_ptr}(
+    piping: Grid*, pipes_len: felt, pipes: felt*, jump: felt, index: felt
+) -> (piping_new: Grid*) {
+    if (pipes_len == 0) {
+        return (piping_new=piping);
+    }
+    assert piping[index] = Grid([pipes + jump - 2], [pipes + jump - 1]);
+    return fill_piping(piping, pipes_len - 1, pipes + jump, jump, index + 1);
 }
 
 // @notice Checks the position is free of atoms

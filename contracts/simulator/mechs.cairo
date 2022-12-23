@@ -63,6 +63,17 @@ func init_mechs{range_check_ptr}(
     return init_mechs(mechs_count - 1, mechs + ns_mechs.INPUT_MECH_SIZE, dict, dimension);
 }
 
+// @notice Verifies the volume of the mechs is within bounds
+// @param mech_volumes The volumes for the mechs
+func verify_volumes{range_check_ptr}(mech_volumes_len: felt, mech_volumes: felt*) {
+    if (mech_volumes_len == 0) {
+        return ();
+    }
+    let is_valid_volume = is_le([mech_volumes], 127);
+    assert is_valid_volume = 1;
+    return verify_volumes(mech_volumes_len - 1, mech_volumes + 1);
+}
+
 // @notice Returns the total costs for mechs
 // @param mechs The array of mechs
 // @param sum The sum of cost for mechs
