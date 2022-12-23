@@ -3,7 +3,10 @@
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.memcpy import memcpy
 from starkware.cairo.common.math import unsigned_div_rem
+from starkware.cairo.common.math_cmp import is_le
 from starkware.starknet.common.syscalls import get_caller_address
+from starkware.cairo.common.default_dict import default_dict_new, default_dict_finalize
+from starkware.cairo.common.dict_access import DictAccess
 
 from contracts.simulator.constants import (
     ns_summary,
@@ -14,13 +17,7 @@ from contracts.simulator.constants import (
     Summary,
 )
 
-from contracts.simulator.mechs import (
-    MechState,
-    verify_bounded_mechs,
-    get_mechs_cost,
-    iterate_mechs,
-    init_pc,
-)
+from contracts.simulator.mechs import InputMechState, init_mechs, get_mechs_cost, iterate_mechs
 from contracts.simulator.atoms import (
     AtomState,
     AtomFaucetState,
@@ -39,17 +36,19 @@ from contracts.simulator.grid import Grid
 from contracts.simulator.events import new_simulation, end_summary
 
 // @notice Simulates the run for current inputs for 100 cycles
-// @param board_dimension The dimensions of the board
+// @param music_title A shortstring name for this submission in DAW mode; 0 if not in DAW mode
 // @param mechs The array of mechs
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
+// @param mech_volumes The array of volume (midi velocity) value for each mech for DAW mode
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
+    music_title: felt,
     mechs_len: felt,
-    mechs: MechState*,
+    mechs: InputMechState*,
     instructions_sets_len: felt,
     instructions_sets: felt*,
     instructions_len: felt,
@@ -60,12 +59,36 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
+    mech_volumes_len: felt,
+    mech_volumes: felt*,
 ) {
     alloc_locals;
-    let board_dimension = 7;
+    let board_dimension = 10;
+    let is_valid_mech_len = is_le(mechs_len, 25);
+    with_attr error_message("mech length limited to 25") {
+        assert is_valid_mech_len = 1;
+    }
 
+    //
+    // Create the sink array, the piping array and the faucet
+    //
+    let (piping: Grid*) = alloc();
+    assert piping[0] = Grid(0, 0);
+    assert piping[1] = Grid(board_dimension - 1, 0);
+    assert piping[2] = Grid(0, board_dimension - 1);
+    assert piping[3] = Grid(board_dimension - 1, board_dimension - 1);
+    tempvar atom_faucet = AtomFaucetState(0, 0, piping[0]);
+    let (atom_sinks: AtomSinkState*) = alloc();
+    assert atom_sinks[0] = AtomSinkState(0, piping[1]);
+    assert atom_sinks[1] = AtomSinkState(0, piping[2]);
+    assert atom_sinks[2] = AtomSinkState(0, piping[3]);
+
+    //
     // verify the operators are valid following 3 rules
+    //
     verify_valid_operators(
+        4,
+        piping,
         operators_type_len,
         operators_type,
         operators_inputs_len,
@@ -74,11 +97,9 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs,
         board_dimension,
     );
-    // verify the mechs are bounded
-    verify_bounded_mechs(mechs_len, mechs, board_dimension);
 
     //
-    // Calculate base cost based on number of operators and number of mechs used
+    // Calculate base cost based on operators and mechs used
     //
     let base_cost_operators = get_operators_cost(operators_type_len, operators_type, 0);
     let base_cost_mechs = get_mechs_cost(mechs_len, mechs, 0);
@@ -90,6 +111,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let (caller) = get_caller_address();
     new_simulation.emit(
         solver=caller,
+        music_title=music_title,
         mechs_len=mechs_len,
         mechs=mechs,
         instructions_sets_len=instructions_sets_len,
@@ -102,42 +124,32 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs=operators_outputs,
         operators_type_len=operators_type_len,
         operators_type=operators_type,
+        mech_volumes_len=mech_volumes_len,
+        mech_volumes=mech_volumes,
         static_cost=base_cost,
     );
 
     //
-    // Create the empty pc array
+    // Create atoms and mechs dict
     //
-    let (pc: felt*) = alloc();
-    let (pc_empty) = init_pc(mechs_len, pc, 0);
+    let (atoms: DictAccess*) = default_dict_new(default_value=0);
+    let (mech_dict: DictAccess*) = default_dict_new(default_value=0);
+    let (mech_dict: DictAccess*) = init_mechs(mechs_len, mechs, mech_dict, board_dimension);
 
     //
-    // Create the sink array
-    //
-    let (atom_sinks: AtomSinkState*) = alloc();
-    assert atom_sinks[0] = AtomSinkState(0, Grid(board_dimension - 1, 0));
-    assert atom_sinks[1] = AtomSinkState(0, Grid(0, board_dimension - 1));
-    assert atom_sinks[2] = AtomSinkState(0, Grid(board_dimension - 1, board_dimension - 1));
-
-    let (atoms: AtomState*) = alloc();
-
-    //
-    // Forward system by 80, emitting summary frame at end of iterations;
+    // Forward current world by 150, emiting summary at last frame
     //
     simulate_loop(
-        80,
+        150,
         0,
         board_dimension,
         instructions_sets_len,
         instructions_sets,
         instructions_len,
         instructions,
-        mechs_len,
-        mechs,
-        pc_empty,
-        0,
+        mech_dict,
         atoms,
-        AtomFaucetState(0, 0, Grid(0, 0)),
+        atom_faucet,
         3,
         atom_sinks,
         operators_inputs_len,
@@ -154,13 +166,12 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
 
 // @notice Simulates the run for current inputs for n_cycles cycles
 // @param n_cycles The amount of cycles to simulate
-// @param cyle The current cycle
+// @param cycle The current cycle
 // @param board_dimension The dimensions of the board
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
-// @param mechs The array of mechs
-// @param pc The array of program counters
-// @param atoms The arrays of atoms
+// @param mechs The dictionary of mechs
+// @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
@@ -175,11 +186,8 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     instructions_sets: felt*,
     instructions_len: felt,
     instructions: felt*,
-    mechs_len: felt,
-    mechs: MechState*,
-    pc: felt*,
-    atoms_len: felt,
-    atoms: AtomState*,
+    mechs: DictAccess*,
+    atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
@@ -192,7 +200,12 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
     summary: Summary,
 ) {
     alloc_locals;
+
+    //
+    // emit events at end of simulation
+    //
     if (cycle == n_cycles) {
+        default_dict_finalize(dict_accesses_start=atoms, dict_accesses_end=atoms, default_value=0);
         tempvar delivered = summary.delivered;
         if (delivered == 0) {
             end_summary.emit(delivered=0, latency=ns_summary.INF, dynamic_cost=ns_summary.INF);
@@ -209,22 +222,32 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         }
         return ();
     }
+
+    //
     // get current frame instructions
+    //
     let (local frame_instructions: felt*) = alloc();
-    get_frame_instruction_set(
-        cycle, pc, instructions_sets_len, instructions_sets, instructions, 0, frame_instructions, 0
+    let (mechs) = get_frame_instruction_set(
+        cycle,
+        0,
+        mechs,
+        instructions_sets_len,
+        instructions_sets,
+        instructions,
+        0,
+        frame_instructions,
+        0,
     );
 
+    //
     // simulate one frame based on current state + instructions
-    let (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new) = simulate_one_frame(
+    //
+    let (mechs_new, atoms_new, summary_new) = simulate_one_frame(
         board_dimension,
         cycle,
         instructions_sets_len,
         frame_instructions,
-        mechs_len,
         mechs,
-        pc,
-        atoms_len,
         atoms,
         atom_faucet,
         atom_sinks_len,
@@ -238,6 +261,9 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         summary,
     );
 
+    //
+    // main simulation loop
+    //
     simulate_loop(
         n_cycles,
         cycle + 1,
@@ -246,10 +272,7 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
         instructions_sets,
         instructions_len,
         instructions,
-        mechs_len,
         mechs_new,
-        pc_new,
-        atoms_len_new,
         atoms_new,
         atom_faucet,
         atom_sinks_len,
@@ -269,29 +292,25 @@ func simulate_loop{syscall_ptr: felt*, range_check_ptr}(
 // @param board_dimension The dimensions of the board
 // @param cycle The simulation cycle
 // @param instructions The frame's instruction for each mech
-// @param mechs The array of mechs
-// @param pc The array of program counters
-// @param atoms The arrays of atoms
+// @param mechs The dictionary of mechs
+// @param atoms The dictionary of atoms
 // @param atom_faucet The atom faucet
 // @param atom_sinks The array of sinks
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
 // @param summary The summary of the simulation
-// @return mechs_new The array of updated mechs
+// @return mechs_new The dictionary of updated mechs
 // @return atoms_len_new The length of updated atoms
-// @return atoms_new The array of updated atoms
-// @return summary_new The change in simulation summary
+// @return atoms_new The dictionary of updated atoms
+// @return summary_new The updated simulation summary
 func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     board_dimension: felt,
     cycle: felt,
     instructions_len: felt,
     instructions: felt*,
-    mechs_len: felt,
-    mechs: MechState*,
-    pc: felt*,
-    atoms_len: felt,
-    atoms: AtomState*,
+    mechs: DictAccess*,
+    atoms: DictAccess*,
     atom_faucet: AtomFaucetState,
     atom_sinks_len: felt,
     atom_sinks: AtomSinkState*,
@@ -302,54 +321,33 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
     operators_type_len: felt,
     operators_type: felt*,
     summary: Summary,
-) -> (
-    mechs_new: MechState*,
-    pc_new: felt*,
-    atoms_len_new: felt,
-    atoms_new: AtomState*,
-    summary_new: Summary,
-) {
+) -> (mechs_new: DictAccess*, atoms_new: DictAccess*, summary_new: Summary) {
     alloc_locals;
 
-    let (atoms_new: AtomState*) = alloc();
-    memcpy(atoms_new, atoms, atoms_len * ns_atoms.ATOM_STATE_SIZE);
-    let atoms_len_new = populate_faucet(atom_faucet, atoms_len, atoms_new);
+    let (atoms_new) = populate_faucet(atom_faucet, atoms);
 
     //
     // Iterate through mechs
     //
-    let (atoms_new, mechs_new, pc_new, cost_increase) = iterate_mechs(
-        board_dimension,
-        mechs_len,
-        mechs,
-        pc,
-        0,
-        instructions_len,
-        instructions,
-        atoms_len_new,
-        atoms_new,
-        0,
+    let (atoms_new, mechs_new, cost_increase) = iterate_mechs(
+        board_dimension, mechs, 0, instructions_len, instructions, atoms_new, 0
     );
 
     //
     // Iterate through operators
     //
-    let (atoms_len_new, atoms_new) = iterate_operators(
-        atoms_len_new,
-        atoms_new,
-        operators_inputs,
-        operators_outputs,
-        operators_type_len,
-        operators_type,
+    let (atoms_new) = iterate_operators(
+        atoms_new, operators_inputs, operators_outputs, operators_type_len, operators_type
     );
 
     //
     // Iterate through atom sinks
     //
-    let (atoms_len_new, atoms_new, delivered_increase) = iterate_sinks(
-        atom_sinks_len, atom_sinks, atoms_len_new, atoms_new, 0
-    );
+    let (atoms_new, delivered_increase) = iterate_sinks(atom_sinks_len, atom_sinks, atoms_new, 0);
 
+    //
+    // Update summary
+    //
     tempvar cost_new = summary.cost + cost_increase;
     if (delivered_increase == 0) {
         tempvar summary_new = Summary(summary.frame, cost_new, summary.static_cost, summary.delivered_cost, summary.delivered);
@@ -357,5 +355,5 @@ func simulate_one_frame{syscall_ptr: felt*, range_check_ptr}(
         tempvar summary_new = Summary(cycle + 1, cost_new, summary.static_cost, cost_new, summary.delivered + delivered_increase);
     }
 
-    return (mechs_new, pc_new, atoms_len_new, atoms_new, summary_new);
+    return (mechs_new, atoms_new, summary_new);
 }

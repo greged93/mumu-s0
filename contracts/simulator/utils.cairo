@@ -16,9 +16,8 @@ func check_uniqueness{range_check_ptr}(
     tempvar key = operator.x * ns_dict.MULTIPLIER + operator.y;
     let (value) = dict_read{dict_ptr=dict}(key=key);
 
-    with_attr error_message("overlapping operators") {
-        assert value = 0;
-    }
+    assert value = 0;
+
     dict_write{dict_ptr=dict}(key=key, new_value=1);
     return check_uniqueness(operators_len - 1, operators + GRID_SIZE, dict);
 }
