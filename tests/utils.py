@@ -45,12 +45,17 @@ def convert_mech(mech={}):
         raise ValueError("expected mech")
     mech_id = mech["id"]
     id = int(mech_id[-1 - len(mech_id) % 5 :])
+    description = mech["description"]
+    if type(description) == str:
+        description = int.from_bytes(
+            mech["description"].encode("utf8"), "big"
+        )
     return (
         id,
         MECH_TYPE[mech["typ"]],
         MECH_STATUS[mech["status"]],
         (mech["index"]["x"], mech["index"]["y"]),
-        mech["description"],
+        description,
     )
 
 
