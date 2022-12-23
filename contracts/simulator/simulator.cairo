@@ -36,14 +36,17 @@ from contracts.simulator.grid import Grid
 from contracts.simulator.events import new_simulation, end_summary
 
 // @notice Simulates the run for current inputs for 100 cycles
+// @param music_title A shortstring name for this submission in DAW mode; 0 if not in DAW mode
 // @param mechs The array of mechs
 // @param instructions_sets The length of each mech's instructions
 // @param instructions The array of all mechs' instructions concatenated together
 // @param operators_inputs The array of operators inputs
 // @param operators_output The array of operators outputs
 // @param operators_type The array of operators type
+// @param mech_volumes The array of volume (midi velocity) value for each mech for DAW mode
 @external
 func simulator{syscall_ptr: felt*, range_check_ptr}(
+    music_title: felt,
     mechs_len: felt,
     mechs: InputMechState*,
     instructions_sets_len: felt,
@@ -56,6 +59,8 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
+    mech_volumes_len: felt,
+    mech_volumes: felt*,
 ) {
     alloc_locals;
     let board_dimension = 10;
@@ -106,6 +111,7 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
     let (caller) = get_caller_address();
     new_simulation.emit(
         solver=caller,
+        music_title=music_title,
         mechs_len=mechs_len,
         mechs=mechs,
         instructions_sets_len=instructions_sets_len,
@@ -118,6 +124,8 @@ func simulator{syscall_ptr: felt*, range_check_ptr}(
         operators_outputs=operators_outputs,
         operators_type_len=operators_type_len,
         operators_type=operators_type,
+        mech_volumes_len=mech_volumes_len,
+        mech_volumes=mech_volumes,
         static_cost=base_cost,
     );
 

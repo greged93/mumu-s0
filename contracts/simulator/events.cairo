@@ -11,6 +11,7 @@ from contracts.simulator.grid import Grid
 @event
 func new_simulation(
     solver: felt,
+    music_title: felt,
     mechs_len: felt,
     mechs: InputMechState*,
     instructions_sets_len: felt,
@@ -23,6 +24,8 @@ func new_simulation(
     operators_outputs: Grid*,
     operators_type_len: felt,
     operators_type: felt*,
+    mech_volumes_len: felt,
+    mech_volumes: felt*,
     static_cost: felt,
 ) {
 }
